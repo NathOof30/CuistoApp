@@ -52,6 +52,7 @@ export function formatQuantity(value, unit) {
     if (u === 'pièce' || u === 'piece' || u === 'boîte' || u === 'boite') {
         return value % 1 === 0 ? value.toString() : value.toFixed(0);
     }
-    return parseFloat(value.toFixed(3)).toString();
+    // Afficher exactement 3 décimales pour les autres unités (kg, l, etc.)
+    return value.toFixed(3);
 }
 

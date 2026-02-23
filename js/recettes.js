@@ -269,7 +269,8 @@ function addIngredientRow(ingredientItem = null) {
     quantityInput.type = 'number';
     quantityInput.className = 'ingredient-quantity';
     quantityInput.placeholder = 'Qté';
-    quantityInput.step = 'any';
+    quantityInput.step = '0.001';
+    quantityInput.min = '0';
 
     const unitLabel = document.createElement('span');
     unitLabel.className = 'ingredient-unit';
@@ -285,7 +286,10 @@ function addIngredientRow(ingredientItem = null) {
 
     if (ingredientItem) {
         select.value = ingredientItem.ingredientId;
-        quantityInput.value = ingredientItem.quantity;
+        // Afficher les quantités avec 3 décimales
+        const unit = getIngredientById(ingredientItem.ingredientId)?.unit || '';
+        const isCountUnit = unit && (unit.toLowerCase().includes('pièce') || unit.toLowerCase().includes('piece') || unit.toLowerCase().includes('boîte') || unit.toLowerCase().includes('boite'));
+        quantityInput.value = isCountUnit ? ingredientItem.quantity : ingredientItem.quantity.toFixed(3);
         const selectedIng = getIngredientById(ingredientItem.ingredientId);
         if (selectedIng) unitLabel.textContent = selectedIng.unit;
     }

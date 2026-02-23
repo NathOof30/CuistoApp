@@ -1,5 +1,5 @@
 import { mercuriale, recipes, VAT_RATE, getIngredientById, calculateRecipeCost, saveData } from '../data.js';
-import { formatCurrency, formatQuantity, escapeHTML } from './common.js';
+import { formatCurrency, formatCurrency3, formatQuantity, escapeHTML } from './common.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
 
@@ -171,7 +171,7 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
                     <td>${escapeHTML(ing.name)}</td>
                     <td>${formatQuantity(ing.quantity, ing.unit)}</td>
                     <td>${escapeHTML(ing.unit)}</td>
-                    <td>${formatCurrency(ing.unitPrice)}</td>
+                    <td>${formatCurrency3(ing.unitPrice)}</td>
                     <td>${formatCurrency(ing.totalCost)}</td>
                 </tr>
             `;

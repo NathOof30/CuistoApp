@@ -1,5 +1,5 @@
 import { mercuriale, recipes, getIngredientById, saveData, EU_ALLERGENS } from '../data.js';
-import { formatCurrency, escapeHTML } from './common.js';
+import { formatCurrency, formatCurrency3, escapeHTML } from './common.js';
 import { displayNotifications } from './dashboard.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
@@ -69,7 +69,7 @@ function renderMercurialeTable(searchTerm = '') {
         row.innerHTML = `
             <td>${escapeHTML(ing.name)}</td>
             <td>${escapeHTML(ing.unit)}</td>
-            <td>${ing.price !== null && ing.price !== undefined ? formatCurrency(ing.price) : 'N/A'}</td>
+            <td>${ing.price !== null && ing.price !== undefined ? formatCurrency3(ing.price) : 'N/A'}</td>
             <td>${escapeHTML(ing.family || 'N/A')}</td>
             <td>${escapeHTML(ing.subfamily || 'N/A')}</td>
             <td class="allergen-cell">${allergensDisplay}</td>
@@ -114,7 +114,8 @@ function showIngredientModal(ingredientId = null) {
         document.getElementById('ingredient-id').value = ingredient.id;
         document.getElementById('ingredient-name').value = ingredient.name;
         document.getElementById('ingredient-unit').value = ingredient.unit;
-        document.getElementById('ingredient-price').value = ingredient.price;
+        // Afficher le prix avec 3 décimales
+        document.getElementById('ingredient-price').value = ingredient.price !== null && ingredient.price !== undefined ? ingredient.price.toFixed(3) : '';
         document.getElementById('ingredient-family').value = ingredient.family;
         document.getElementById('ingredient-subfamily').value = ingredient.subfamily;
 
