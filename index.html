@@ -1,0 +1,99 @@
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord - Gestion Culinaire</title>
+    <link rel="stylesheet" href="style.css">
+    
+</head>
+<body>
+    <header>
+        <h1>Tableau de Bord</h1>
+        <nav>
+            <a href="index.html" class="active">Tableau de Bord</a>
+            <a href="recettes.html">Recettes</a>
+            <a href="mercuriale.html">Mercuriale</a>
+            <a href="bon-economat.html">Bons d'économat</a>
+        </nav>
+    </header>
+
+    <main id="app-container">
+        <div class="dashboard-grid">
+            <!-- Section de bienvenue et statistiques -->
+            <div class="card card-welcome">
+                <h2>Bienvenue Chef !</h2>
+                <p>Voici un aperçu de votre activité.</p>
+            </div>
+
+            <!-- Statistiques clés -->
+            <div class="card">
+                <h3>Statistiques Clés</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-recipes">...</span>
+                        <span class="stat-label">Recettes</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-ingredients">...</span>
+                        <span class="stat-label">Ingrédients</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Rapides -->
+            <div class="card">
+                <h3>Actions Rapides</h3>
+                <div class="actions-grid">
+                    <a href="recettes.html?action=add" class="action-button">
+                        <span class="icon">🍳</span> Ajouter une recette
+                    </a>
+                    <a href="mercuriale.html?action=add" class="action-button">
+                        <span class="icon">🥕</span> Ajouter une denrée
+                    </a>
+                    <a href="bon-economat.html" class="action-button">
+                        <span class="icon">📋</span> Générer un bon d'économat
+                    </a>
+                </div>
+            </div>
+
+            <!-- Gestion des données -->
+            <div class="card">
+                <h3>Gestion des Données</h3>
+                <div class="actions-grid">
+                    <button id="import-data-btn" class="action-button">
+                        <span class="icon">📤</span> Importer les données (.json)
+                    </button>
+                    <button id="export-data-btn" class="action-button">
+                        <span class="icon">📥</span> Exporter les données (.json)
+                    </button>
+                    <button id="convert-kg-btn" class="action-button">
+                        <span class="icon">🔁</span> Convertir kg → g (télécharger)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Notifications -->
+            <div class="card card-notifications">
+                <h3>Notifications</h3>
+                <ul id="notifications-list">
+                    <!-- Les notifications seront injectées ici par JS -->
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modale pour la première visite -->
+    <div id="first-visit-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3>Bienvenue !</h3>
+            <p>C'est la première fois que vous utilisez l'application, ou vos données locales ont été effacées. Que souhaitez-vous faire ?</p>
+            <div class="modal-actions">
+                <button id="start-fresh-btn" class="button-secondary">Commencer avec les données d'exemple</button>
+                <button id="import-first-time-btn" class="button-primary">Charger un fichier de sauvegarde (.json)</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recettes - Gestion Culinaire</title>
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+    <header>
+        <h1>Gestion des Recettes</h1>
+        <nav>
+            <a href="index.html">Tableau de Bord</a>
+            <a href="recettes.html" class="active">Recettes</a>
+            <a href="mercuriale.html">Mercuriale</a>
+            <a href="bon-economat.html">Bons d'économat</a>
+        </nav>
+    </header>
+
+    <main id="app-container">
+        <div class="page-header">
+            <h2>Liste des Recettes</h2>
+            <div class="header-actions">
+                <input type="search" id="search-recipe" placeholder="Rechercher une recette...">
+                <button id="add-recipe-btn" class="button-primary">Ajouter une recette</button>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="recipes-table">
+                <thead>
+                    <tr>
+                        <th>Nom de la recette</th>
+                        <th>Portions</th>
+                        <th title="Coefficient Multiplicateur">CM</th>
+                        <th>Coût total</th>
+                        <th>Coût / portion</th>
+                        <th>Prix vente HT</th>
+                        <th>Prix vente TTC</th>
+                        <th>Marge brute</th>
+                        <th title="Marge nette après main d'œuvre et frais">Marge nette</th>
+                        <th title="Profit par heure de travail">€/heure</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Lignes de recettes injectées par JS -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Modale pour ajouter/modifier une recette -->
+    <div id="recipe-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content modal-large">
+            <form id="recipe-form">
+                <h3 id="modal-title">Ajouter une recette</h3>
+                <input type="hidden" id="recipe-id">
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="recipe-name">Nom de la recette</label>
+                        <input type="text" id="recipe-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="recipe-servings">Nombre de portions</label>
+                        <input type="number" id="recipe-servings" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="recipe-multiplier">Coefficient multiplicateur</label>
+                        <input type="number" id="recipe-multiplier" required step="0.1" min="1">
+                    </div>
+                </div>
+
+                <!-- Section temps et rentabilité -->
+                <div class="form-section">
+                    <h4>⏱️ Temps & Rentabilité</h4>
+                    <div class="form-grid form-grid-4">
+                        <div class="form-group">
+                            <label for="recipe-production-time">Temps de production (min)</label>
+                            <input type="number" id="recipe-production-time" min="0" step="1" placeholder="Ex: 30">
+                        </div>
+                        <div class="form-group">
+                            <label for="recipe-hourly-rate">Taux horaire (€/h)</label>
+                            <input type="number" id="recipe-hourly-rate" min="0" step="0.5" value="15">
+                        </div>
+                    </div>
+                    <p class="form-hint">💡 Renseignez le temps de production pour calculer la rentabilité réelle de
+                        cette recette.</p>
+                </div>
+
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label for="recipe-steps">Étapes (instructions)</label>
+                    <textarea id="recipe-steps" rows="4" placeholder="Décrivez les étapes de la recette..."></textarea>
+                </div>
+
+                <h4>🥗 Ingrédients</h4>
+                <div id="ingredient-list" class="ingredient-rows">
+                    <!-- Lignes d'ingrédients injectées par JS -->
+                </div>
+                <button type="button" id="add-ingredient-row-btn" class="button-secondary">Ajouter un
+                    ingrédient</button>
+
+                <!-- Aperçu des allergènes -->
+                <div id="allergen-preview" class="allergen-preview-container">
+                    <span class="no-allergen-preview">✓ Aucun allergène détecté</span>
+                </div>
+
+                <hr>
+
+                <h4>💰 Analyse des Coûts & Rentabilité</h4>
+                <div class="costs-summary">
+                    <div class="costs-grid">
+                        <div class="cost-section">
+                            <h5>Coûts matière</h5>
+                            <p>Coût matière total: <strong id="total-cost-display">0,000 €</strong></p>
+                            <p>Coût matière / portion: <strong id="cost-per-serving-display">0,000 €</strong></p>
+                        </div>
+                        <div class="cost-section">
+                            <h5>Prix de vente</h5>
+                            <p>Prix de vente HT: <strong id="sale-price-ht-display">0,000 €</strong></p>
+                            <p>Prix de vente TTC: <strong id="sale-price-ttc-display">0,000 €</strong></p>
+                        </div>
+                        <div class="cost-section cost-section-highlight">
+                            <h5>Rentabilité</h5>
+                            <p>Coût main d'œuvre / portion: <strong id="labor-cost-display">0,000 €</strong></p>
+                            <p>Coût complet / portion: <strong id="total-cost-serving-display">0,000 €</strong></p>
+                            <p>Marge nette: <strong id="net-margin-display">N/A</strong></p>
+                            <p>Rentabilité horaire: <strong id="hourly-profit-display">N/A</strong></p>
+                            <p>Prix suggéré (25% marge): <strong id="suggested-price-display">N/A</strong></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" id="cancel-btn" class="button-secondary">Annuler</button>
+                    <button type="submit" class="button-primary">Sauvegarder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modale pour afficher les détails des allergènes -->
+    <div id="allergen-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content modal-small">
+            <h3 class="allergen-modal-title">Allergènes</h3>
+            <button type="button" class="modal-close-btn" aria-label="Fermer">✕</button>
+            <div class="allergen-list">
+                <!-- Liste des allergènes injectée par JS -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+</body>
+
+</html>

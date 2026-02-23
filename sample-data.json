@@ -1,0 +1,59 @@
+{
+  "mercuriale": [
+    { "id": 1, "name": "Farine T55", "price": 0.0012, "unit": "g", "family": "Épicerie", "subfamily": "Sec", "allergens": ["gluten"] },
+    { "id": 2, "name": "Oeuf", "price": 0.25, "unit": "pièce", "family": "Crèmerie", "subfamily": "", "allergens": ["eggs"] },
+    { "id": 3, "name": "Sucre", "price": 0.0015, "unit": "g", "family": "Épicerie", "subfamily": "Sec", "allergens": [] },
+    { "id": 4, "name": "Beurre", "price": 0.008, "unit": "g", "family": "Crèmerie", "subfamily": "", "allergens": ["milk"] },
+    { "id": 5, "name": "Chocolat noir 70%", "price": 0.015, "unit": "g", "family": "Épicerie", "subfamily": "Pâtisserie", "allergens": ["milk", "soybeans"] },
+    { "id": 6, "name": "Lait entier", "price": 1.1, "unit": "L", "family": "Crèmerie", "subfamily": "", "allergens": ["milk"] },
+    { "id": 7, "name": "Tomate", "price": 0.0025, "unit": "g", "family": "Légumerie", "subfamily": "Légumes fruits", "allergens": [] },
+    { "id": 8, "name": "Oignon", "price": 0.0013, "unit": "g", "family": "Légumerie", "subfamily": "Légumes racines", "allergens": [] },
+    { "id": 9, "name": "Huile d'olive", "price": 9.5, "unit": "L", "family": "Épicerie", "subfamily": "Huiles et vinaigres", "allergens": [] },
+    { "id": 10, "name": "Sel fin", "price": null, "unit": "g", "family": "Épicerie", "subfamily": "Condiments", "allergens": [] },
+    { "id": 11, "name": "Ail", "price": 0.005, "unit": "g", "family": "Légumerie", "subfamily": "Condiments", "allergens": [] }
+  ],
+  "recipes": [
+    {
+      "id": 1,
+      "name": "Mousse au chocolat",
+      "servings": 6,
+      "multiplier": 3.5,
+      "productionTime": 30,
+      "steps": "Fondre le chocolat, battre les oeufs, incorporer le sucre, monter en neige et mélanger délicatement.",
+      "ingredients": [
+        { "ingredientId": 5, "quantity": 200 },
+        { "ingredientId": 2, "quantity": 4 },
+        { "ingredientId": 3, "quantity": 50 }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Sauce tomate maison",
+      "servings": 4,
+      "multiplier": 4,
+      "productionTime": 45,
+      "steps": "Faire revenir l'oignon, ajouter la tomate, laisser mijoter, assaisonner.",
+      "ingredients": [
+        { "ingredientId": 7, "quantity": 1000 },
+        { "ingredientId": 8, "quantity": 200 },
+        { "ingredientId": 9, "quantity": 0.05 },
+        { "ingredientId": 10, "quantity": 10 },
+        { "ingredientId": 11, "quantity": 20 }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Crêpes",
+      "servings": 8,
+      "multiplier": 4.5,
+      "productionTime": 20,
+      "steps": "",
+      "ingredients": [
+        { "ingredientId": 1, "quantity": 250 },
+        { "ingredientId": 2, "quantity": 4 },
+        { "ingredientId": 6, "quantity": 0.5 },
+        { "ingredientId": 3, "quantity": 100 }
+      ]
+    }
+  ]
+}

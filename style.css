@@ -1,0 +1,1237 @@
+:root {
+    /* Palette modernisée */
+    --primary-color: #6366f1;
+    --primary-hover: #4f46e5;
+    --secondary-color: #3730a3;
+    --accent-color: #8b5cf6;
+    --background-color: #f8fafc;
+    --card-background: #ffffff;
+    --text-color: #1e293b;
+    --text-light: #64748b;
+    --text-muted: #94a3b8;
+    --border-color: #e2e8f0;
+    --border-light: #f1f5f9;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    --border-radius: 12px;
+    --border-radius-sm: 8px;
+    --border-radius-lg: 16px;
+    --font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    --transition: all 0.2s ease;
+
+    /* Couleurs pour les marges */
+    --margin-high: #10b981;
+    --margin-high-bg: #d1fae5;
+    --margin-medium: #f59e0b;
+    --margin-medium-bg: #fef3c7;
+    --margin-low: #ef4444;
+    --margin-low-bg: #fee2e2;
+
+    /* Couleurs pour le devis */
+    --success-color: #22c55e;
+    --success-bg: #dcfce7;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Header Styles --- */
+header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+header nav {
+    display: flex;
+    gap: 0.5rem;
+}
+
+header nav a {
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-sm);
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    background: transparent;
+}
+
+header nav a:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+header nav a.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* --- Main Container --- */
+#app-container {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* --- Dashboard Styles --- */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.card {
+    background: var(--card-background);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.card:hover {
+    box-shadow: var(--shadow-lg);
+}
+
+.card-welcome {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    color: white;
+    border: none;
+}
+
+.card-welcome h2 {
+    margin-top: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+.card-welcome p {
+    opacity: 0.9;
+    margin-bottom: 0;
+}
+
+.card h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, var(--border-light) 0%, var(--background-color) 100%);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.stat-value {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-top: 0.25rem;
+    font-weight: 500;
+}
+
+.actions-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.action-button {
+    display: flex;
+    align-items: center;
+    padding: 0.875rem 1rem;
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    text-decoration: none;
+    color: var(--text-color);
+    font-weight: 500;
+    transition: var(--transition);
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-family: var(--font-family);
+    line-height: 1.5;
+}
+
+.action-button .icon {
+    margin-right: 0.75rem;
+    font-size: 1.25rem;
+}
+
+.action-button:hover {
+    background-color: var(--background-color);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* --- Notifications --- */
+#notifications-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+#notifications-list li {
+    padding: 0.875rem;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+#notifications-list li:last-child {
+    border-bottom: none;
+}
+
+#notifications-list .icon {
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+}
+
+#notifications-list li a {
+    margin-left: auto;
+    font-size: 0.85rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+#notifications-list li a:hover {
+    background-color: rgba(99, 102, 241, 0.1);
+}
+
+/* --- Page Header --- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.page-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* --- Form Controls --- */
+input[type="search"],
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    font-size: 0.95rem;
+    font-family: var(--font-family);
+    transition: var(--transition);
+    background-color: var(--card-background);
+    color: var(--text-color);
+}
+
+input[type="search"]:focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+input[type="search"] {
+    min-width: 280px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 0.75rem center;
+    background-size: 1rem;
+    padding-left: 2.25rem;
+}
+
+/* --- Buttons --- */
+.button-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    color: white;
+    border: none;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+    font-family: var(--font-family);
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.button-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+    filter: brightness(1.05);
+}
+
+.button-primary:active {
+    transform: translateY(0);
+}
+
+.button-secondary {
+    background-color: var(--card-background);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.95rem;
+    font-family: var(--font-family);
+    transition: var(--transition);
+}
+
+.button-secondary:hover {
+    background-color: var(--background-color);
+    border-color: var(--text-light);
+}
+
+/* --- Tables --- */
+.table-container {
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    overflow: auto;
+    border: 1px solid var(--border-color);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-light);
+}
+
+thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: linear-gradient(135deg, var(--background-color) 0%, var(--border-light) 100%);
+}
+
+th {
+    background-color: var(--background-color);
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+tbody tr {
+    transition: var(--transition);
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+tbody tr:hover {
+    background-color: rgba(99, 102, 241, 0.04);
+}
+
+/* Zebra striping for better readability */
+tbody tr:nth-child(even) {
+    background-color: var(--border-light);
+}
+
+tbody tr:nth-child(even):hover {
+    background-color: rgba(99, 102, 241, 0.08);
+}
+
+/* --- Action Buttons in Tables --- */
+.action-cell {
+    white-space: nowrap;
+}
+
+.action-cell button {
+    margin-right: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.action-cell button:last-child {
+    margin-right: 0;
+}
+
+.duplicate-btn {
+    background-color: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0 !important;
+}
+
+.duplicate-btn:hover {
+    background-color: #dcfce7;
+}
+
+.edit-btn {
+    background-color: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fde68a !important;
+}
+
+.edit-btn:hover {
+    background-color: #fef3c7;
+}
+
+.delete-btn {
+    background-color: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca !important;
+}
+
+.delete-btn:hover {
+    background-color: #fee2e2;
+}
+
+/* --- Margin Badges --- */
+.margin-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 60px;
+}
+
+.margin-high {
+    background-color: var(--margin-high-bg);
+    color: var(--margin-high);
+}
+
+.margin-medium {
+    background-color: var(--margin-medium-bg);
+    color: var(--margin-medium);
+}
+
+.margin-low {
+    background-color: var(--margin-low-bg);
+    color: var(--margin-low);
+}
+
+/* --- Bon d'économat Styles --- */
+.recipe-selection-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.recipe-selector-row {
+    display: grid;
+    grid-template-columns: 1fr 150px auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    background-color: var(--border-light);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.recipe-selector-row select,
+.recipe-selector-row input {
+    width: 100%;
+}
+
+.bon-economat-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+#bon-economat-results {
+    margin-top: 2rem;
+}
+
+.bon-recipe-card {
+    margin-bottom: 1.5rem;
+}
+
+.bon-recipe-card h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--secondary-color);
+    font-size: 1.1rem;
+    font-weight: 600;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.bon-recipe-card table tfoot td {
+    border-top: 2px solid var(--primary-color);
+    background-color: rgba(99, 102, 241, 0.05);
+}
+
+.global-total-cost {
+    text-align: right;
+    font-size: 1.25rem;
+    margin-top: 1.5rem;
+    color: var(--secondary-color);
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    border-radius: var(--border-radius-sm);
+}
+
+/* --- Sales Quote Card --- */
+.sales-quote-card {
+    background: linear-gradient(135deg, var(--success-bg) 0%, #f0fdf4 100%);
+    border: 1px solid #bbf7d0;
+    margin-top: 1.5rem;
+}
+
+.sales-quote-card h3 {
+    color: #16a34a;
+    margin-bottom: 0.5rem;
+}
+
+.sales-quote-description {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+}
+
+.sales-quote-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.quote-item {
+    background: var(--card-background);
+    padding: 1.25rem;
+    border-radius: var(--border-radius-sm);
+    text-align: center;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.quote-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.quote-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.quote-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.quote-profit .quote-value {
+    color: var(--success-color);
+}
+
+/* --- Modal Styles --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 1rem;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-content {
+    background-color: var(--card-background);
+    padding: 2rem;
+    border-radius: var(--border-radius-lg);
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    color: var(--text-color);
+    font-size: 1.5rem;
+    font-weight: 700;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1.5rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* --- Ingredient Rows --- */
+.ingredient-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.ingredient-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 80px auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.75rem;
+    background-color: var(--border-light);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.ingredient-row select,
+.ingredient-row input {
+    width: 100%;
+}
+
+.ingredient-unit {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    text-align: center;
+    font-weight: 500;
+}
+
+.delete-ingredient-btn {
+    padding: 0.5rem !important;
+    min-width: 40px;
+}
+
+/* --- Costs Summary --- */
+.costs-summary {
+    background: linear-gradient(135deg, var(--background-color) 0%, var(--border-light) 100%);
+    padding: 1.25rem;
+    border-radius: var(--border-radius-sm);
+    margin: 1.5rem 0;
+    border: 1px solid var(--border-color);
+}
+
+.costs-summary p {
+    margin: 0.5rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+}
+
+.costs-summary strong {
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+/* --- Modal Actions --- */
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 1.5rem 0;
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1rem;
+        gap: 1rem;
+    }
+
+    header nav {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 0.5rem;
+    }
+
+    header nav a {
+        white-space: nowrap;
+    }
+
+    #app-container {
+        padding: 1rem;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .header-actions {
+        flex-direction: column;
+    }
+
+    input[type="search"] {
+        min-width: 100%;
+    }
+
+    .ingredient-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .recipe-selector-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-content {
+        padding: 1.25rem;
+        max-height: 95vh;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sales-quote-grid {
+        grid-template-columns: 1fr;
+    }
+
+    table {
+        font-size: 0.85rem;
+    }
+
+    th,
+    td {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .action-cell button {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* --- Print Styles --- */
+@media print {
+    header {
+        position: static;
+        background: none;
+        color: var(--text-color);
+        box-shadow: none;
+    }
+
+    header nav {
+        display: none;
+    }
+
+    .button-primary,
+    .button-secondary,
+    .action-cell,
+    .header-actions,
+    .bon-economat-actions {
+        display: none !important;
+    }
+
+    .card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+    }
+}
+
+/* ============================================
+   NOUVELLES FONCTIONNALITÉS - ALLERGÈNES & RENTABILITÉ
+   ============================================ */
+
+/* --- Modal Large --- */
+.modal-large {
+    max-width: 1000px;
+}
+
+.modal-small {
+    max-width: 500px;
+    position: relative;
+}
+
+/* --- Form Sections --- */
+.form-section {
+    background: var(--border-light);
+    border-radius: var(--border-radius-sm);
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+    border: 1px solid var(--border-color);
+}
+
+.form-section h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+    color: var(--primary-color);
+}
+
+.form-hint {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    margin: 0.5rem 0;
+}
+
+.form-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* --- Text Alignment --- */
+.text-right {
+    text-align: right;
+}
+
+/* --- Allergen Checkbox Grid --- */
+.allergen-checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.allergen-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 0.85rem;
+}
+
+.allergen-checkbox-label:hover {
+    border-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.allergen-checkbox-label input[type="checkbox"] {
+    accent-color: var(--primary-color);
+}
+
+.allergen-checkbox-label input[type="checkbox"]:checked+.allergen-checkbox-icon+.allergen-checkbox-name {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.allergen-checkbox-icon {
+    font-size: 1.1rem;
+}
+
+.allergen-checkbox-name {
+    flex: 1;
+}
+
+/* --- Allergen Display in Tables --- */
+.allergen-cell {
+    min-width: 80px;
+}
+
+.allergen-icons-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.allergen-icon-small {
+    font-size: 1rem;
+    cursor: help;
+}
+
+.no-allergen-text {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* --- Allergen Indicator Badge (Recipe Table) --- */
+.recipe-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.allergen-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.allergen-indicator:hover {
+    background: #fde68a;
+    transform: scale(1.05);
+}
+
+.no-allergen-badge {
+    color: var(--margin-high);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* --- Allergen Modal --- */
+.allergen-modal-title {
+    margin-bottom: 1rem !important;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-light);
+    transition: var(--transition);
+}
+
+.modal-close-btn:hover {
+    color: var(--text-color);
+}
+
+.allergen-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.allergen-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--border-light);
+    border-radius: var(--border-radius-sm);
+}
+
+.allergen-item .allergen-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.allergen-item .allergen-info strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--text-color);
+}
+
+.allergen-item .allergen-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.no-allergens-message {
+    text-align: center;
+    color: var(--margin-high);
+    font-weight: 500;
+}
+
+/* --- Allergen Preview in Form --- */
+.allergen-preview-container {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    background: var(--border-light);
+    border-radius: var(--border-radius-sm);
+    border-left: 4px solid var(--border-color);
+}
+
+.allergen-preview-container.has-allergens {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.no-allergen-preview {
+    color: var(--margin-high);
+    font-weight: 500;
+}
+
+.allergen-warning {
+    color: #d97706;
+    font-weight: 600;
+}
+
+.allergen-preview-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.allergen-preview-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: white;
+    border: 1px solid #fcd34d;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+}
+
+/* --- Costs Grid --- */
+.costs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.cost-section {
+    padding: 1rem;
+    background: var(--card-background);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.cost-section h5 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-light);
+}
+
+.cost-section p {
+    margin: 0.5rem 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+}
+
+.cost-section-highlight {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    border-color: var(--primary-color);
+}
+
+.cost-section-highlight h5 {
+    color: var(--primary-color);
+}
+
+/* --- Value Colors --- */
+.value-positive {
+    color: var(--margin-high) !important;
+    font-weight: 700;
+}
+
+.value-warning {
+    color: var(--margin-medium) !important;
+    font-weight: 700;
+}
+
+.value-negative {
+    color: var(--margin-low) !important;
+    font-weight: 700;
+}
+
+/* --- Profitability Badge --- */
+.profitability-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+    min-width: 70px;
+    background: var(--border-light);
+}
+
+.profit-high {
+    background-color: var(--margin-high-bg);
+    color: var(--margin-high);
+}
+
+.profit-medium {
+    background-color: var(--margin-medium-bg);
+    color: var(--margin-medium);
+}
+
+.profit-low {
+    background-color: var(--margin-low-bg);
+    color: var(--margin-low);
+}
+
+/* --- Responsive adjustments for new features --- */
+@media (max-width: 768px) {
+    .allergen-checkbox-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .costs-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .recipe-name-cell {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .form-grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
