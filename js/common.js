@@ -18,6 +18,32 @@ export function formatCurrency3(amount) {
     }).format(amount);
 }
 
+const COUNTABLE_UNITS = [
+    'piece', 'pieces', 'pièce', 'pièces', 'boite', 'boîte', 'boites', 'boîtes',
+    'unite', 'unité', 'unites', 'unités', 'portion', 'portions', 'pcs'
+];
+
+function normalizeUnit(unit) {
+    return String(unit ?? '').toLowerCase().trim();
+}
+
+export function isCountUnit(unit) {
+    const normalizedUnit = normalizeUnit(unit);
+    return COUNTABLE_UNITS.includes(normalizedUnit);
+}
+
+function formatQuantityValue(value, unit) {
+    const numericValue = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+    const digits = isCountUnit(unit) ? 0 : 3;
+    return {
+        plain: numericValue.toFixed(digits),
+        localized: new Intl.NumberFormat('fr-FR', {
+            minimumFractionDigits: digits,
+            maximumFractionDigits: digits
+        }).format(numericValue)
+    };
+}
+
 // Format pourcentage avec précision paramétrable
 export function formatPercent(value, decimals = 1) {
     if (typeof value !== 'number') {
@@ -45,14 +71,18 @@ export function escapeHTML(unsafe) {
     return div.innerHTML;
 }
 
-// Format quantité : 0 décimales pour pièce/boîte, 3 décimales sinon
+// Format quantité pour l'affichage dans l'interface
 export function formatQuantity(value, unit) {
-    if (typeof value !== 'number') value = 0;
-    const u = (unit || '').toLowerCase().trim();
-    if (u === 'pièce' || u === 'piece' || u === 'boîte' || u === 'boite') {
-        return value % 1 === 0 ? value.toString() : value.toFixed(0);
-    }
-    // Afficher exactement 3 décimales pour les autres unités (kg, l, etc.)
-    return value.toFixed(3);
+    return formatQuantityValue(value, unit).localized;
+}
+
+// Format quantité brut pour les champs de saisie et exports
+export function formatQuantityPlain(value, unit) {
+    return formatQuantityValue(value, unit).plain;
+}
+
+// Alias explicite pour les champs <input type="number">
+export function formatQuantityInput(value, unit) {
+    return formatQuantityPlain(value, unit);
 }
 

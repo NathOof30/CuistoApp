@@ -6,7 +6,7 @@ import {
     calculateNetMargin, calculateHourlyProfitability, calculateSuggestedPrice,
     getRecipeAllergens, getRecipeAllergenDetails
 } from '../data.js';
-import { formatCurrency, formatCurrency3, formatPercent, formatDuration, escapeHTML } from './common.js';
+import { formatCurrency, formatCurrency3, formatPercent, formatDuration, escapeHTML, formatQuantityInput } from './common.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
 
@@ -288,8 +288,7 @@ function addIngredientRow(ingredientItem = null) {
         select.value = ingredientItem.ingredientId;
         // Afficher les quantités avec 3 décimales
         const unit = getIngredientById(ingredientItem.ingredientId)?.unit || '';
-        const isCountUnit = unit && (unit.toLowerCase().includes('pièce') || unit.toLowerCase().includes('piece') || unit.toLowerCase().includes('boîte') || unit.toLowerCase().includes('boite'));
-        quantityInput.value = isCountUnit ? ingredientItem.quantity : ingredientItem.quantity.toFixed(3);
+        quantityInput.value = formatQuantityInput(ingredientItem.quantity, unit);
         const selectedIng = getIngredientById(ingredientItem.ingredientId);
         if (selectedIng) unitLabel.textContent = selectedIng.unit;
     }

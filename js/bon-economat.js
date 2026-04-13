@@ -1,5 +1,5 @@
 import { mercuriale, recipes, VAT_RATE, getIngredientById, calculateRecipeCost, saveData } from '../data.js';
-import { formatCurrency, formatCurrency3, formatQuantity, escapeHTML } from './common.js';
+import { formatCurrency, formatCurrency3, formatQuantity, formatQuantityPlain, escapeHTML } from './common.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
 
@@ -231,7 +231,7 @@ function exportToCSV() {
     bonData.summary.sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
         const row = [
             `"${item.name.replace(/"/g, '""')}"`,
-            item.quantity.toFixed(3),
+            formatQuantityPlain(item.quantity, item.unit),
             item.unit,
             item.totalCost.toFixed(2)
         ].join(',');
@@ -267,7 +267,7 @@ function exportToTXT() {
         .forEach(item => {
             const cols = [
                 String(item.name || '').replace(/[\t\n\r]/g, ' ').trim(),
-                Number(item.quantity || 0).toFixed(3),
+                formatQuantityPlain(item.quantity, item.unit),
                 String(item.unit || '').replace(/[\t\n\r]/g, ' ').trim(),
                 Number(item.totalCost || 0).toFixed(2)
             ];
@@ -335,7 +335,7 @@ function exportToFixedTXT() {
         .sort((a, b) => a.name.localeCompare(b.name))
         .map(i => [
             padEnd(trunc(i.name, nameColWidth), nameColWidth),
-            padStart(i.quantity.toFixed(3), qtyColWidth),
+            padStart(formatQuantityPlain(i.quantity, i.unit), qtyColWidth),
             padEnd(trunc(i.unit, unitColWidth), unitColWidth),
             padStart(i.totalCost.toFixed(2), costColWidth)
         ].join('  '));
