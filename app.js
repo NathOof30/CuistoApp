@@ -5,7 +5,18 @@ import { initBonEconomatPage } from './js/bon-economat.js';
 import { isDataLoaded } from './data.js';
 import { initDataManagement, showFirstVisitModal } from './js/data-management.js';
 
+function updateStickyHeaderOffset() {
+    const header = document.querySelector('header');
+    if (!header) return;
+    const headerHeight = Math.ceil(header.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--sticky-header-offset', `${headerHeight}px`);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    updateStickyHeaderOffset();
+    window.addEventListener('load', updateStickyHeaderOffset);
+    window.addEventListener('resize', updateStickyHeaderOffset);
+
     const path = window.location.pathname.split("/").pop();
 
     if (!isDataLoaded() && (path === 'index.html' || path === '')) {

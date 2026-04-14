@@ -31,6 +31,9 @@
     /* Couleurs pour le devis */
     --success-color: #22c55e;
     --success-bg: #dcfce7;
+
+    /* Positionnement sticky des entêtes de tableaux sous le header global */
+    --sticky-header-offset: 88px;
 }
 
 * {
@@ -370,7 +373,7 @@ input[type="search"] {
     background: var(--card-background);
     border-radius: var(--border-radius);
     box-shadow: var(--shadow);
-    overflow: auto;
+    overflow: visible;
     border: 1px solid var(--border-color);
 }
 
@@ -387,9 +390,7 @@ td {
 }
 
 thead {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    position: static;
     background: linear-gradient(135deg, var(--background-color) 0%, var(--border-light) 100%);
 }
 
@@ -400,6 +401,22 @@ th {
     color: var(--text-light);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+/* Sticky uniquement pour Recettes & Mercuriale, juste sous le header sticky */
+#recipes-table,
+#mercuriale-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#recipes-table thead th,
+#mercuriale-table thead th {
+    position: sticky;
+    top: var(--sticky-header-offset);
+    z-index: 90;
+    background: var(--background-color);
+    box-shadow: 0 1px 0 0 var(--border-color);
 }
 
 tbody tr {
