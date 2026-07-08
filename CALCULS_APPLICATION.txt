@@ -3,7 +3,8 @@
 ═══════════════════════════════════════════════════════════════════════════════
 
 Date de création : 8 février 2026
-Version : 1.0
+Dernière mise à jour : 8 juillet 2026 (Intégration de l'arrondi à la dizaine supérieure)
+Version : 2.0
 
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -11,7 +12,7 @@ Version : 1.0
 ═══════════════════════════════════════════════════════════════════════════════
 
 1. PARAMÈTRES DE CONFIGURATION
-2. CALCULS DE BASE
+2. CALCULS DE BASE & RÈGLE D'ARRONDI
 3. CALCULS DE RENTABILITÉ
 4. CALCULS LIÉS AUX ALLERGÈNES
 5. FORMULES DÉTAILLÉES ET EXEMPLES
@@ -67,15 +68,40 @@ besoins de l'établissement :
 
 
 ═══════════════════════════════════════════════════════════════════════════════
-    2. CALCULS DE BASE
+    2. CALCULS DE BASE & RÈGLE D'ARRONDI
 ═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ RÈGLE D'ARRONDI STRICTE (formatCurrency)                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Afin de garantir la rentabilité et d'absorber les micro-pertes de           │
+│ manipulation, TOUTES les valeurs monétaires affichées sur l'interface       │
+│ subissent un arrondi supérieur obligatoire :                                │
+│                                                                             │
+│ 1. RÈGLE PRINCIPALE : Arrondi à la dizaine de centimes supérieure           │
+│    Formule : Arrondi = Math.ceil(Montant × 10) ÷ 10                         │
+│    Exemple : 4.075 € devient 4.10 €                                         │
+│                                                                             │
+│ 2. EXCEPTION (Micro-prix < 0.10 €) : Arrondi au centime supérieur           │
+│    Formule : Arrondi = Math.ceil(Montant × 100) ÷ 100                       │
+│    Exemple : 0.075 € devient 0.08 € (évite de gonfler à 0.10 €)             │
+│                                                                             │
+│ IMPORTANT : Les calculs intermédiaires en base de données utilisent les     │
+│ valeurs exactes (non arrondies) pour éviter le cumul des erreurs. Seul      │
+│ l'affichage final est arrondi.                                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ 2.1 - COÛT MATIÈRE D'UNE RECETTE (calculateRecipeCost)                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│ FORMULE :                                                                   │
-│   Coût total = Σ (Prix unitaire ingrédient × Quantité utilisée)             │
+│ FORMULE BRUTE :                                                             │
+│   Coût total brut = Σ (Prix unitaire ingrédient × Quantité utilisée)        │
+│                                                                             │
+│ AFFICHAGE :                                                                 │
+│   Coût affiché = formatCurrency(Coût total brut)                            │
 │                                                                             │
 │ DESCRIPTION :                                                               │
 │   Calcule le coût total des matières premières nécessaires pour réaliser    │
@@ -83,8 +109,8 @@ besoins de l'établissement :
 │                                                                             │
 │ DÉTAIL DU CALCUL :                                                          │
 │   1. Pour chaque ingrédient de la recette :                                 │
-│      - Récupérer le prix unitaire depuis la mercuriale                      │
-│      - Multiplier par la quantité utilisée                                  │
+│      - Récupérer le prix unitaire brut depuis la mercuriale                 │
+│      - Multiplier par la quantité brute utilisée                            │
 │   2. Additionner tous les coûts individuels                                 │
 │   3. Ignorer les ingrédients sans prix (prix = null)                        │
 │                                                                             │
@@ -93,7 +119,8 @@ besoins de l'établissement :
 │   • Œufs : 4 pièces × 0.25 €/pièce = 1.00 €                                 │
 │   • Sucre : 50g × 0.0015 €/g = 0.075 €                                      │
 │   ───────────────────────────────────────                                   │
-│   TOTAL : 4.075 € (coût matière pour 6 portions)                            │
+│   TOTAL BRUT : 4.075 €                                                      │
+│   AFFICHÉ SUR LE SITE : 4.10 €                                              │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -107,7 +134,7 @@ besoins de l'établissement :
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE :                                                                   │
-│   Coût MO = (Temps production ÷ 60) × Taux horaire × Multiplicateur         │
+│   Coût MO brut = (Temps production ÷ 60) × Taux horaire × Multiplicateur    │
 │                                                                             │
 │ PARAMÈTRES :                                                                │
 │   • Temps production : en minutes (stocké dans recipe.productionTime)       │
@@ -115,13 +142,10 @@ besoins de l'établissement :
 │   • Multiplicateur : 1.45 (inclut charges patronales)                       │
 │                                                                             │
 │ EXEMPLE - Mousse au chocolat (30 minutes) :                                 │
-│   Coût MO = (30 ÷ 60) × 15.00 × 1.45                                        │
-│          = 0.5 × 15.00 × 1.45                                               │
-│          = 10.875 €                                                         │
-│                                                                             │
-│ INTERPRÉTATION :                                                            │
-│   Le coût réel de la main d'œuvre pour produire cette recette est de        │
-│   10.875 €, charges patronales incluses.                                    │
+│   Coût MO brut = (30 ÷ 60) × 15.00 × 1.45                                   │
+│                = 0.5 × 15.00 × 1.45                                         │
+│                = 10.875 €                                                   │
+│   AFFICHÉ SUR LE SITE : 10.90 €                                             │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -130,14 +154,11 @@ besoins de l'établissement :
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE :                                                                   │
-│   Coût MO/portion = Coût MO total ÷ Nombre de portions                      │
+│   Coût MO/portion brut = Coût MO total brut ÷ Nombre de portions            │
 │                                                                             │
 │ EXEMPLE - Mousse au chocolat (6 portions) :                                 │
-│   Coût MO/portion = 10.875 ÷ 6                                              │
-│                   = 1.8125 €                                                │
-│                                                                             │
-│ INTERPRÉTATION :                                                            │
-│   Chaque portion de mousse au chocolat coûte 1.81 € en main d'œuvre.        │
+│   Coût MO/portion brut = 10.875 ÷ 6                                         │
+│                        = 1.8125 €                                           │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -146,8 +167,8 @@ besoins de l'établissement :
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE :                                                                   │
-│   Frais généraux = Coût matière × Pourcentage overhead                      │
-│                  = Coût matière × 0.15                                      │
+│   Frais généraux bruts = Coût matière brut × Pourcentage overhead           │
+│                        = Coût matière brut × 0.15                           │
 │                                                                             │
 │ DESCRIPTION :                                                               │
 │   Les frais généraux représentent les coûts indirects de production :       │
@@ -157,11 +178,8 @@ besoins de l'établissement :
 │   • Entretien et nettoyage                                                  │
 │                                                                             │
 │ EXEMPLE - Mousse au chocolat :                                              │
-│   Coût matière = 4.075 €                                                    │
-│   Frais généraux = 4.075 × 0.15 = 0.611 €                                   │
-│                                                                             │
-│ INTERPRÉTATION :                                                            │
-│   La production de cette recette génère 0.61 € de frais indirects.          │
+│   Coût matière brut = 4.075 €                                               │
+│   Frais généraux bruts = 4.075 × 0.15 = 0.61125 €                           │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -170,26 +188,23 @@ besoins de l'établissement :
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE :                                                                   │
-│   Coût complet/portion = Coût matière/portion                               │
-│                        + Coût MO/portion                                    │
-│                        + Frais généraux/portion                             │
+│   Coût complet/portion brut = Coût matière/portion brut                     │
+│                             + Coût MO/portion brut                          │
+│                             + Frais généraux/portion brut                   │
 │                                                                             │
 │ DÉTAIL DU CALCUL :                                                          │
-│   1. Coût matière par portion = Coût matière total ÷ Nb portions            │
-│   2. Coût MO par portion (voir 3.2)                                         │
-│   3. Frais généraux par portion = Frais généraux totaux ÷ Nb portions       │
-│   4. Somme des trois composantes                                            │
+│   1. Coût matière par portion brut = Coût matière total brut ÷ Nb portions  │
+│   2. Coût MO par portion brut (voir 3.2)                                    │
+│   3. Frais généraux par portion brut = Frais généraux bruts ÷ Nb portions   │
+│   4. Somme des trois composantes brutes                                     │
 │                                                                             │
 │ EXEMPLE - Mousse au chocolat (6 portions) :                                 │
-│   • Coût matière/portion : 4.075 ÷ 6 = 0.679 €                              │
-│   • Coût MO/portion : 1.8125 €                                              │
-│   • Frais généraux/portion : 0.611 ÷ 6 = 0.102 €                            │
+│   • Coût matière/portion brut : 4.075 ÷ 6 = 0.679167 €                      │
+│   • Coût MO/portion brut : 1.8125 €                                         │
+│   • Frais généraux/portion brut : 0.61125 ÷ 6 = 0.101875 €                  │
 │   ───────────────────────────────────────────────────────                   │
-│   COÛT COMPLET/PORTION : 2.593 €                                            │
-│                                                                             │
-│ INTERPRÉTATION :                                                            │
-│   Le coût réel de production d'une portion est de 2.59 €, tous frais        │
-│   inclus (matière, main d'œuvre, frais généraux).                           │
+│   COÛT COMPLET/PORTION BRUT : 2.593542 €                                    │
+│   AFFICHÉ SUR LE SITE : 2.60 €                                              │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -197,28 +212,24 @@ besoins de l'établissement :
 │ 3.5 - MARGE NETTE RÉELLE (calculateNetMargin)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│ FORMULE :                                                                   │
+│ FORMULE (basée sur les valeurs brutes) :                                    │
 │   Marge nette (%) = ((Prix vente HT - Coût complet) ÷ Prix vente HT) × 100  │
 │                                                                             │
 │ DÉTAIL DU CALCUL :                                                          │
-│   1. Coût matière/portion = Coût matière total ÷ Nb portions                │
-│   2. Prix vente HT/portion = Coût matière/portion × Multiplicateur          │
-│   3. Coût complet/portion (voir 3.4)                                        │
-│   4. Profit/portion = Prix vente HT - Coût complet                          │
-│   5. Marge (%) = (Profit ÷ Prix vente HT) × 100                             │
+│   1. Coût matière/portion brut = Coût matière total brut ÷ Nb portions      │
+│   2. Prix vente HT brut = Coût matière/portion brut × Multiplicateur        │
+│   3. Coût complet/portion brut (voir 3.4)                                   │
+│   4. Profit brut = Prix vente HT brut - Coût complet/portion brut           │
+│   5. Marge nette brute = (Profit brut ÷ Prix vente HT brut) × 100           │
 │                                                                             │
-│ EXEMPLE - Mousse au chocolat :                                              │
-│   • Coût matière/portion : 0.679 €                                          │
+│ EXEMPLE - Mousse au chocolat (mélange brut) :                               │
+│   • Coût matière/portion brut : 0.679167 €                                  │
 │   • Multiplicateur : 3.5                                                    │
-│   • Prix vente HT : 0.679 × 3.5 = 2.377 €                                   │
-│   • Coût complet : 2.593 €                                                  │
-│   • Profit : 2.377 - 2.593 = -0.216 € (PERTE !)                             │
-│   • Marge : (-0.216 ÷ 2.377) × 100 = -9.09%                                 │
-│                                                                             │
-│ INTERPRÉTATION :                                                            │
-│   ⚠️ ATTENTION : Marge négative = vente à perte !                           │
-│   Le prix actuel ne couvre pas les coûts réels de production.               │
-│   Il faut soit augmenter le prix, soit optimiser la production.             │
+│   • Prix vente HT brut : 0.679167 × 3.5 = 2.377083 €                        │
+│   • Coût complet brut : 2.593542 €                                          │
+│   • Profit brut : 2.377083 - 2.593542 = -0.216458 € (PERTE !)               │
+│   • Marge nette réelle : (-0.216458 ÷ 2.377083) × 100 = -9.106%             │
+│   AFFICHÉE SUR LE SITE (formatPercent) : -9.1%                              │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -227,36 +238,18 @@ besoins de l'établissement :
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE :                                                                   │
-│   Profit/heure = (Profit par portion × Nb portions) ÷ (Temps ÷ 60)          │
-│                                                                             │
-│ DESCRIPTION :                                                               │
-│   Mesure combien d'argent est gagné (ou perdu) par heure de travail         │
-│   consacrée à cette recette. Indicateur clé pour comparer la rentabilité    │
-│   de différentes recettes.                                                  │
+│   Profit/heure brut = (Profit/portion brut × Nb portions) ÷ (Temps ÷ 60)    │
 │                                                                             │
 │ DÉTAIL DU CALCUL :                                                          │
-│   1. Coût matière/portion = Coût matière total ÷ Nb portions                │
-│   2. Prix vente HT/portion = Coût matière/portion × Multiplicateur          │
-│   3. Coût complet/portion (voir 3.4)                                        │
-│   4. Profit/portion = Prix vente HT - Coût complet                          │
-│   5. Profit total = Profit/portion × Nb portions                            │
-│   6. Heures = Temps production ÷ 60                                         │
-│   7. Profit/heure = Profit total ÷ Heures                                   │
+│   1. Profit brut total = Profit par portion brut × Nb portions              │
+│   2. Heures = Temps production ÷ 60                                         │
+│   3. Profit/heure brut = Profit brut total ÷ Heures                         │
 │                                                                             │
 │ EXEMPLE - Mousse au chocolat (30 min, 6 portions) :                         │
-│   • Profit/portion : -0.216 €                                               │
-│   • Profit total : -0.216 × 6 = -1.296 €                                    │
+│   • Profit brut total : -0.216458 × 6 = -1.29875 €                          │
 │   • Heures : 30 ÷ 60 = 0.5 h                                                │
-│   • Profit/heure : -1.296 ÷ 0.5 = -2.592 €/h                                │
-│                                                                             │
-│ INTERPRÉTATION :                                                            │
-│   Chaque heure passée à produire cette recette génère une perte de          │
-│   2.59 €. Il serait plus rentable de produire une autre recette.            │
-│                                                                             │
-│ UTILISATION :                                                               │
-│   • Comparer plusieurs recettes pour optimiser la production                │
-│   • Identifier les recettes les plus rentables                              │
-│   • Prioriser les productions en fonction du temps disponible               │
+│   • Profit/heure brut : -1.29875 ÷ 0.5 = -2.5975 €/h                        │
+│   AFFICHÉ SUR LE SITE : -2.50 €/h                                           │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -265,37 +258,19 @@ besoins de l'établissement :
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE :                                                                   │
-│   Prix suggéré HT = Coût complet/portion ÷ (1 - Marge cible)                │
+│   Prix suggéré HT brut = Coût complet/portion brut ÷ (1 - Marge cible)      │
 │                                                                             │
-│ DESCRIPTION :                                                               │
-│   Calcule le prix de vente minimum pour atteindre la marge nette cible      │
-│   (par défaut 25%). Ce prix garantit la rentabilité de la recette.          │
-│                                                                             │
-│ LOGIQUE MATHÉMATIQUE :                                                      │
-│   Si on veut une marge de 25%, cela signifie que :                          │
-│   • Le coût représente 75% du prix de vente                                 │
-│   • Le profit représente 25% du prix de vente                               │
-│   Donc : Prix = Coût ÷ 0.75 = Coût ÷ (1 - 0.25)                             │
+│ LOGIQUE MATHÉMATIQUE (marge nette cible à 25%) :                            │
+│   Prix suggéré HT brut = Coût complet/portion brut ÷ 0.75                   │
 │                                                                             │
 │ EXEMPLE - Mousse au chocolat :                                              │
-│   • Coût complet/portion : 2.593 €                                          │
-│   • Marge cible : 25%                                                       │
-│   • Prix suggéré : 2.593 ÷ (1 - 0.25)                                       │
-│                  = 2.593 ÷ 0.75                                             │
-│                  = 3.457 € HT                                               │
-│                                                                             │
-│ VÉRIFICATION :                                                              │
-│   • Prix vente : 3.457 €                                                    │
-│   • Coût : 2.593 €                                                          │
-│   • Profit : 3.457 - 2.593 = 0.864 €                                        │
-│   • Marge : 0.864 ÷ 3.457 = 0.25 = 25% ✓                                    │
+│   • Coût complet/portion brut : 2.593542 €                                  │
+│   • Prix suggéré HT brut : 2.593542 ÷ 0.75 = 3.458056 €                     │
+│   AFFICHÉ HT SUR LE SITE : 3.50 €                                           │
 │                                                                             │
 │ AVEC TVA (10%) :                                                            │
-│   Prix TTC = 3.457 × 1.10 = 3.80 €                                          │
-│                                                                             │
-│ INTERPRÉTATION :                                                            │
-│   Pour être rentable avec une marge de 25%, la mousse au chocolat           │
-│   devrait être vendue au minimum 3.46 € HT (3.80 € TTC) par portion.        │
+│   Prix suggéré TTC brut = 3.458056 × 1.10 = 3.803861 €                      │
+│   AFFICHÉ TTC SUR LE SITE : 3.90 €                                          │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -360,35 +335,11 @@ besoins de l'établissement :
 │     }                                                                       │
 │   ]                                                                         │
 │                                                                             │
-│ UTILISATION :                                                               │
-│   Affichage sur les menus, fiches techniques, étiquettes allergènes         │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ 4.3 - VÉRIFICATION ALLERGÈNE (ingredientHasAllergen)                        │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│ MÉTHODE :                                                                   │
-│   Vérifie si un ingrédient spécifique contient un allergène donné           │
-│                                                                             │
-│ EXEMPLE :                                                                   │
-│   ingredientHasAllergen(5, 'milk')  // Chocolat noir contient du lait ?     │
-│   → Retourne : true                                                         │
-│                                                                             │
-│   ingredientHasAllergen(3, 'gluten')  // Sucre contient du gluten ?         │
-│   → Retourne : false                                                        │
-│                                                                             │
-│ UTILISATION :                                                               │
-│   • Filtrage de recettes selon les allergies des clients                    │
-│   • Suggestions de substitutions d'ingrédients                              │
-│   • Alertes en cuisine                                                      │
-│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 
 ═══════════════════════════════════════════════════════════════════════════════
-    5. FORMULES DÉTAILLÉES ET EXEMPLES
+    5. FORMULES DÉTAILLÉES ET EXEMPLES COMPLETS
 ═══════════════════════════════════════════════════════════════════════════════
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -412,162 +363,132 @@ besoins de l'établissement :
 │   Œufs : 4 × 0.25 = 1.000 €                                                 │
 │   Sucre : 50 × 0.0015 = 0.075 €                                             │
 │   ───────────────────────────                                               │
-│   TOTAL MATIÈRE : 4.075 €                                                   │
-│   Par portion : 4.075 ÷ 6 = 0.679 €                                         │
+│   TOTAL BRUT : 4.075 €            → AFFICHÉ : 4.10 €                        │
+│   Par portion brut : 0.679167 €   → AFFICHÉ : 0.70 €                        │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 2 : COÛT MAIN D'ŒUVRE                                                 │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   Heures : 30 ÷ 60 = 0.5 h                                                  │
 │   Coût horaire chargé : 15.00 × 1.45 = 21.75 €/h                            │
-│   Coût MO total : 0.5 × 21.75 = 10.875 €                                    │
-│   Par portion : 10.875 ÷ 6 = 1.8125 €                                       │
+│   Coût MO total brut : 0.5 × 21.75 = 10.875 €  → AFFICHÉ : 10.90 €          │
+│   Par portion brut : 10.875 ÷ 6 = 1.8125 €                                  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 3 : FRAIS GÉNÉRAUX                                                    │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Frais totaux : 4.075 × 0.15 = 0.611 €                                     │
-│   Par portion : 0.611 ÷ 6 = 0.102 €                                         │
+│   Frais totaux bruts : 4.075 × 0.15 = 0.61125 €                             │
+│   Par portion brut : 0.61125 ÷ 6 = 0.101875 €                               │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 4 : COÛT COMPLET                                                      │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Matière : 0.679 €                                                         │
-│   Main d'œuvre : 1.8125 €                                                   │
-│   Frais généraux : 0.102 €                                                  │
+│   Matière/portion brut : 0.679167 €                                         │
+│   Main d'œuvre/portion brut : 1.8125 €                                      │
+│   Frais généraux/portion brut : 0.101875 €                                  │
 │   ───────────────────────────                                               │
-│   COÛT COMPLET/PORTION : 2.593 €                                            │
+│   COÛT COMPLET/PORTION BRUT : 2.593542 €        → AFFICHÉ : 2.60 €           │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 5 : PRIX ACTUEL ET MARGE                                              │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Prix vente HT : 0.679 × 3.5 = 2.377 €                                     │
-│   Profit : 2.377 - 2.593 = -0.216 €                                         │
-│   Marge : (-0.216 ÷ 2.377) × 100 = -9.09% ⚠️                                │
+│   Prix vente HT brut : 0.679167 × 3.5 = 2.377083 €  → AFFICHÉ : 2.40 €      │
+│   Prix vente TTC brut : 2.377083 × 1.1 = 2.614791 € → AFFICHÉ : 2.70 €      │
+│   Profit brut : 2.377083 - 2.593542 = -0.216458 €                           │
+│   Marge nette brute : (-0.216458 ÷ 2.377083) × 100 = -9.106%                │
+│   → AFFICHÉE : -9.1% ⚠️                                                     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 6 : RENTABILITÉ HORAIRE                                               │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Profit total : -0.216 × 6 = -1.296 €                                      │
-│   Profit/heure : -1.296 ÷ 0.5 = -2.592 €/h ⚠️                               │
+│   Profit total brut : -0.216458 × 6 = -1.29875 €                            │
+│   Profit/heure brut : -1.29875 ÷ 0.5 = -2.5975 €/h → AFFICHÉ : -2.50 €/h ⚠️  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 7 : PRIX SUGGÉRÉ (marge 25%)                                          │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Prix suggéré HT : 2.593 ÷ 0.75 = 3.457 €                                  │
-│   Prix suggéré TTC : 3.457 × 1.10 = 3.80 €                                  │
-│                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────   │
-│ CONCLUSION                                                                  │
-│ ─────────────────────────────────────────────────────────────────────────   │
-│   ⚠️ ALERTE : Recette vendue à perte !                                      │
-│                                                                             │
-│   Prix actuel : 2.38 € HT (2.62 € TTC)                                      │
-│   Prix minimum recommandé : 3.46 € HT (3.80 € TTC)                          │
-│   Augmentation nécessaire : +45.4%                                          │
-│                                                                             │
-│   ACTIONS POSSIBLES :                                                       │
-│   1. Augmenter le prix de vente à 3.80 € TTC                                │
-│   2. Réduire le temps de production (optimisation)                          │
-│   3. Négocier le prix des matières premières                                │
-│   4. Augmenter le nombre de portions par batch                              │
+│   Prix suggéré HT brut : 2.593542 ÷ 0.75 = 3.458056 € → AFFICHÉ : 3.50 €    │
+│   Prix suggéré TTC brut : 3.458056 × 1.10 = 3.803861 € → AFFICHÉ : 3.90 €   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 5.2 - EXEMPLE COMPLET : SAUCE TOMATE MAISON                                │
+│ 5.2 - EXEMPLE COMPLET : SAUCE TOMATE MAISON                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ DONNÉES DE BASE :                                                           │
-│   • Nombre de portions : 4                                                 │
-│   • Temps de production : 45 minutes                                       │
-│   • Multiplicateur de prix : 4.0                                           │
+│   • Nombre de portions : 4                                                  │
+│   • Temps de production : 45 minutes                                        │
+│   • Multiplicateur de prix : 4.0                                            │
 │                                                                             │
 │ INGRÉDIENTS :                                                               │
-│   • Tomate : 1000g à 0.0025 €/g                                           │
-│   • Oignon : 200g à 0.0013 €/g                                            │
-│   • Huile d'olive : 0.05L à 9.50 €/L                                      │
-│   • Sel : 10g (prix null, non comptabilisé)                                │
-│   • Ail : 20g à 0.005 €/g                                                 │
+│   • Tomate : 1000g à 0.0025 €/g                                             │
+│   • Oignon : 200g à 0.0013 €/g                                              │
+│   • Huile d'olive : 0.05L à 9.50 €/L                                        │
+│   • Sel : 10g (prix null, non comptabilisé)                                 │
+│   • Ail : 20g à 0.005 €/g                                                   │
 │                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│ ÉTAPE 1 : COÛT MATIÈRE                                                     │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│   Tomate : 1000 × 0.0025 = 2.500 €                                        │
-│   Oignon : 200 × 0.0013 = 0.260 €                                         │
-│   Huile : 0.05 × 9.50 = 0.475 €                                           │
-│   Sel : ignoré (prix null)                                                 │
-│   Ail : 20 × 0.005 = 0.100 €                                              │
-│   ───────────────────────────                                              │
-│   TOTAL MATIÈRE : 3.335 €                                                  │
-│   Par portion : 3.335 ÷ 4 = 0.834 €                                       │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│ ÉTAPE 1 : COÛT MATIÈRE                                                      │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│   Tomate : 1000 × 0.0025 = 2.500 €                                          │
+│   Oignon : 200 × 0.0013 = 0.260 €                                           │
+│   Huile : 0.05 × 9.50 = 0.475 €                                             │
+│   Sel : ignoré (prix null)                                                  │
+│   Ail : 20 × 0.005 = 0.100 €                                                │
+│   ───────────────────────────                                               │
+│   TOTAL BRUT : 3.335 €            → AFFICHÉ : 3.40 €                        │
+│   Par portion brut : 0.83375 €    → AFFICHÉ : 0.90 €                        │
 │                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│ ÉTAPE 2 : COÛT MAIN D'ŒUVRE                                                │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│   Heures : 45 ÷ 60 = 0.75 h                                               │
-│   Coût horaire chargé : 15.00 × 1.45 = 21.75 €/h                          │
-│   Coût MO total : 0.75 × 21.75 = 16.3125 €                                │
-│   Par portion : 16.3125 ÷ 4 = 4.078 €                                     │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│ ÉTAPE 2 : COÛT MAIN D'ŒUVRE                                                 │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│   Heures : 45 ÷ 60 = 0.75 h                                                 │
+│   Coût horaire chargé : 15.00 × 1.45 = 21.75 €/h                            │
+│   Coût MO total brut : 0.75 × 21.75 = 16.3125 € → AFFICHÉ : 16.40 €         │
+│   Par portion brut : 16.3125 ÷ 4 = 4.078125 €                               │
 │                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│ ÉTAPE 3 : FRAIS GÉNÉRAUX                                                   │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│   Frais totaux : 3.335 × 0.15 = 0.500 €                                   │
-│   Par portion : 0.500 ÷ 4 = 0.125 €                                       │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│ ÉTAPE 3 : FRAIS GÉNÉRAUX                                                    │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│   Frais totaux bruts : 3.335 × 0.15 = 0.50025 €                             │
+│   Par portion brut : 0.50025 ÷ 4 = 0.1250625 €                              │
 │                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│ ÉTAPE 4 : COÛT COMPLET                                                     │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│   Matière : 0.834 €                                                        │
-│   Main d'œuvre : 4.078 €                                                   │
-│   Frais généraux : 0.125 €                                                 │
-│   ───────────────────────────                                              │
-│   COÛT COMPLET/PORTION : 5.037 €                                           │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│ ÉTAPE 4 : COÛT COMPLET                                                      │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│   Matière/portion brut : 0.83375 €                                          │
+│   Main d'œuvre/portion brut : 4.078125 €                                    │
+│   Frais généraux/portion brut : 0.1250625 €                                 │
+│   ───────────────────────────                                               │
+│   COÛT COMPLET/PORTION BRUT : 5.0369375 €       → AFFICHÉ : 5.10 €           │
 │                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│ ÉTAPE 5 : PRIX ACTUEL ET MARGE                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│   Prix vente HT : 0.834 × 4.0 = 3.336 €                                   │
-│   Profit : 3.336 - 5.037 = -1.701 €                                       │
-│   Marge : (-1.701 ÷ 3.336) × 100 = -50.99% ⚠️⚠️                           │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│ ÉTAPE 5 : PRIX ACTUEL ET MARGE                                              │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│   Prix vente HT brut : 0.83375 × 4.0 = 3.335 €       → AFFICHÉ : 3.40 €     │
+│   Prix vente TTC brut : 3.335 × 1.1 = 3.6685 €       → AFFICHÉ : 3.70 €     │
+│   Profit brut : 3.335 - 5.0369375 = -1.7019375 €                            │
+│   Marge nette brute : (-1.7019375 ÷ 3.335) × 100 = -51.032%                 │
+│   → AFFICHÉE : -51.0% ⚠️⚠️                                                  │
 │                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│ ÉTAPE 6 : RENTABILITÉ HORAIRE                                              │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│   Profit total : -1.701 × 4 = -6.804 €                                    │
-│   Profit/heure : -6.804 ÷ 0.75 = -9.072 €/h ⚠️⚠️                          │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│ ÉTAPE 6 : RENTABILITÉ HORAIRE                                               │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│   Profit total brut : -1.7019375 × 4 = -6.80775 €                           │
+│   Profit/heure brut : -6.80775 ÷ 0.75 = -9.077 €/h → AFFICHÉ : -9.00 €/h ⚠️⚠️│
 │                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│ ÉTAPE 7 : PRIX SUGGÉRÉ (marge 25%)                                         │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│   Prix suggéré HT : 5.037 ÷ 0.75 = 6.716 €                                │
-│   Prix suggéré TTC : 6.716 × 1.10 = 7.39 €                                │
-│                                                                             │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│ CONCLUSION                                                                  │
-│ ─────────────────────────────────────────────────────────────────────────  │
-│   ⚠️⚠️ ALERTE CRITIQUE : Perte importante !                                │
-│                                                                             │
-│   Prix actuel : 3.34 € HT (3.67 € TTC)                                    │
-│   Prix minimum recommandé : 6.72 € HT (7.39 € TTC)                        │
-│   Augmentation nécessaire : +101.3%                                        │
-│                                                                             │
-│   ANALYSE :                                                                 │
-│   Le coût de main d'œuvre (4.08 €) est 5× supérieur au coût matière       │
-│   (0.83 €). Cette recette est très gourmande en temps.                     │
-│                                                                             │
-│   RECOMMANDATIONS :                                                         │
-│   1. Produire en plus grande quantité (économie d'échelle)                 │
-│   2. Utiliser cette sauce comme base pour d'autres plats                   │
-│   3. Optimiser le processus (cuisson passive, batch cooking)               │
-│   4. Considérer l'achat de sauce industrielle si usage ponctuel            │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│ ÉTAPE 7 : PRIX SUGGÉRÉ (marge 25%)                                          │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│   Prix suggéré HT brut : 5.0369375 ÷ 0.75 = 6.715917 € → AFFICHÉ : 6.80 €   │
+│   Prix suggéré TTC brut : 6.715917 × 1.10 = 7.387509 € → AFFICHÉ : 7.40 €   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 
 ═══════════════════════════════════════════════════════════════════════════════
-    GLOSSAIRE
+    GLOSSAIRE & RAPPELS
 ═══════════════════════════════════════════════════════════════════════════════
 
 Coût matière (Food Cost)
@@ -592,58 +513,21 @@ Prix TTC (Toutes Taxes Comprises)
   Prix de vente final incluant la TVA (HT × 1.10 pour TVA à 10%).
 
 Marge brute
-  Différence entre prix de vente et coût matière uniquement.
+  Différence entre prix de vente HT et coût matière uniquement.
 
 Marge nette
-  Différence entre prix de vente et coût complet (tous frais inclus).
+  Différence entre prix de vente HT et coût complet (tous frais inclus).
 
 Multiplicateur (Coefficient multiplicateur)
   Facteur appliqué au coût matière pour obtenir le prix de vente.
-  Exemple : multiplicateur de 3.5 signifie prix = coût matière × 3.5
+  Exemple : multiplicateur de 3.5 signifie prix HT = coût matière × 3.5
 
 Rentabilité horaire
-  Profit généré par heure de travail consacrée à la production.
+  Profit brut généré par heure de travail consacrée à la production.
 
 Allergène
   Substance alimentaire pouvant provoquer des réactions allergiques.
   14 allergènes majeurs sont réglementés par l'UE (Règlement 1169/2011).
-
-
-═══════════════════════════════════════════════════════════════════════════════
-    NOTES IMPORTANTES
-═══════════════════════════════════════════════════════════════════════════════
-
-1. PARAMÈTRES MODIFIABLES
-   Les constantes suivantes peuvent être ajustées selon votre établissement :
-   • DEFAULT_HOURLY_RATE : Adapter selon vos coûts salariaux réels
-   • LABOR_COST_MULTIPLIER : Ajuster selon vos charges patronales
-   • OVERHEAD_PERCENTAGE : Calculer selon vos frais réels
-   • TARGET_NET_MARGIN : Définir selon votre stratégie commerciale
-
-2. INGRÉDIENTS SANS PRIX
-   Les ingrédients avec prix = null (comme le sel) ne sont pas comptabilisés
-   dans les calculs de coût. Cela permet de ne pas fausser les calculs pour
-   des ingrédients négligeables ou fournis gratuitement.
-
-3. INTERPRÉTATION DES MARGES
-   • Marge > 30% : Excellente rentabilité
-   • Marge 20-30% : Bonne rentabilité
-   • Marge 10-20% : Rentabilité acceptable
-   • Marge 0-10% : Rentabilité faible, à surveiller
-   • Marge < 0% : PERTE - Action immédiate requise
-
-4. CONFORMITÉ ALLERGÈNES
-   La gestion des allergènes est conforme au Règlement UE 1169/2011 qui
-   impose la déclaration obligatoire des 14 allergènes majeurs dans la
-   restauration commerciale et collective.
-
-5. OPTIMISATION DE LA RENTABILITÉ
-   Pour améliorer la rentabilité d'une recette :
-   • Augmenter le prix de vente
-   • Réduire le temps de production (optimisation processus)
-   • Négocier les prix des matières premières
-   • Augmenter la taille des batchs (économies d'échelle)
-   • Réduire le gaspillage
 
 
 ═══════════════════════════════════════════════════════════════════════════════
