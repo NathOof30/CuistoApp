@@ -43,7 +43,6 @@
                         <th class="sortable" data-sort="grossMargin">Marge brute <span class="sort-icon">↕</span></th>
                         <th class="sortable" data-sort="netMargin" title="Marge nette après main d'œuvre et frais">Marge nette <span class="sort-icon">↕</span></th>
                         <th class="sortable" data-sort="hourlyProfit" title="Profit par heure de travail">€/heure <span class="sort-icon">↕</span></th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -150,6 +149,22 @@
             <button type="button" class="modal-close-btn" aria-label="Fermer">✕</button>
             <div class="allergen-list">
                 <!-- Liste des allergènes injectée par JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale pour afficher les détails complets d'une recette -->
+    <div id="recipe-details-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content modal-large">
+            <h3 id="recipe-details-title">Détails de la Recette</h3>
+            <div id="recipe-details-content">
+                <!-- Rempli dynamiquement par le JS -->
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="details-duplicate-btn" class="button-secondary">Dupliquer</button>
+                <button type="button" id="details-edit-btn" class="button-primary">Modifier</button>
+                <button type="button" id="details-delete-btn" class="button-danger">Supprimer</button>
+                <button type="button" id="details-close-btn" class="button-secondary">Fermer</button>
             </div>
         </div>
     </div>

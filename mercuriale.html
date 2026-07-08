@@ -42,7 +42,6 @@
                         <th class="sortable" data-sort="family">Famille <span class="sort-icon">↕</span></th>
                         <th class="sortable" data-sort="subfamily">Sous-famille <span class="sort-icon">↕</span></th>
                         <th>Allergènes</th>
-                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -97,6 +96,21 @@
                     <button type="submit" class="button-primary">Sauvegarder</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modale pour afficher les détails complets d'une denrée -->
+    <div id="ingredient-details-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3 id="ingredient-details-title">Détails de la Denrée</h3>
+            <div id="ingredient-details-content">
+                <!-- Rempli dynamiquement par le JS -->
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="details-edit-btn" class="button-primary">Modifier</button>
+                <button type="button" id="details-delete-btn" class="button-danger">Supprimer</button>
+                <button type="button" id="details-close-btn" class="button-secondary">Fermer</button>
+            </div>
         </div>
     </div>
 

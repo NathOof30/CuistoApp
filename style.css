@@ -381,13 +381,16 @@ input[type="search"] {
     background: var(--card-background);
     border-radius: var(--border-radius);
     box-shadow: var(--shadow);
-    overflow: hidden;
+    overflow: auto;
+    max-height: 70vh;
     border: 1px solid var(--border-color);
+    position: relative;
 }
 
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     text-align: left;
 }
 
@@ -396,7 +399,20 @@ th, td {
     border-bottom: 1px solid var(--border-color);
 }
 
+#recipes-table th:first-child,
+#recipes-table td:first-child {
+    width: 30%;
+}
+
+#mercuriale-table th:first-child,
+#mercuriale-table td:first-child {
+    width: 35%;
+}
+
 th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     background-color: var(--border-light);
     color: var(--text-light);
     font-weight: 600;
@@ -404,6 +420,7 @@ th {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     user-select: none;
+    box-shadow: inset 0 -1px 0 var(--border-color);
 }
 
 th.sortable {
@@ -988,6 +1005,148 @@ body.dark-mode tbody tr:nth-child(even) {
 
 #notifications-list .icon {
     font-size: 1.1rem;
+}
+
+/* --- Details Modal Layout --- */
+.modal-content.modal-large {
+    max-width: 900px;
+    width: 95%;
+}
+
+.details-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.details-header-info {
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.details-header-info h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+.details-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    font-size: 0.95rem;
+    color: var(--text-light);
+}
+
+.details-grid-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.kpi-card {
+    background-color: var(--border-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: var(--transition);
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.kpi-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.kpi-value {
+    font-size: 1.25rem;
+    font-weight: 750;
+    color: var(--text-color);
+}
+
+.details-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.details-ingredients-list-wrapper {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+}
+
+.details-ingredients-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.9rem;
+}
+
+.details-ingredients-table th {
+    position: static;
+    background-color: var(--border-light);
+    padding: 0.625rem 1rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-light);
+    box-shadow: none;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.details-ingredients-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.details-ingredients-table tr:last-child td {
+    border-bottom: none;
+}
+
+.details-steps-box {
+    background-color: var(--border-light);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 1rem 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-light);
+}
+
+.details-allergens-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.allergen-badge-item {
+    background-color: var(--border-light);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
 }
 
 /* --- Print Styles --- */

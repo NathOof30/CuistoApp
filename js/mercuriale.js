@@ -53,13 +53,26 @@ export function initMercurialePage() {
     form.addEventListener('submit', handleIngredientFormSubmit);
     document.getElementById('cancel-btn').addEventListener('click', () => closeModal(modal));
 
-    // Close on Escape handled globally in app.js now, but kept here just in case
+    // Close on Escape
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.style.display !== 'none') closeModal(modal);
+        if (e.key === 'Escape') {
+            if (modal.style.display !== 'none') closeModal(modal);
+            const detailsModal = document.getElementById('ingredient-details-modal');
+            if (detailsModal && detailsModal.style.display !== 'none') closeModal(detailsModal);
+        }
     });
 
     // Close modal on click outside content
     modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
+
+    const detailsModal = document.getElementById('ingredient-details-modal');
+    if (detailsModal) {
+        detailsModal.addEventListener('click', (e) => { if (e.target === detailsModal) closeModal(detailsModal); });
+        const closeBtn = document.getElementById('details-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => { closeModal(detailsModal); });
+        }
+    }
 
     if (localStorage.getItem('openIngredientModal') === 'true') {
         localStorage.removeItem('openIngredientModal');
@@ -145,6 +158,7 @@ export function renderMercurialeTable() {
     filteredMercuriale.forEach(ing => {
         const row = document.createElement('tr');
         row.dataset.id = ing.id;
+        row.style.cursor = 'pointer';
         const allergensDisplay = renderAllergenIcons(ing.allergens);
 
         row.innerHTML = `
@@ -154,18 +168,10 @@ export function renderMercurialeTable() {
             <td data-label="Famille">${escapeHTML(ing.family || '—')}</td>
             <td data-label="Sous-famille">${escapeHTML(ing.subfamily || '—')}</td>
             <td data-label="Allergènes" class="allergen-cell">${allergensDisplay}</td>
-            <td data-label="Actions" class="action-cell">
-                <button class="edit-btn" data-id="${ing.id}">Modifier</button>
-                <button class="delete-btn" data-id="${ing.id}">Supprimer</button>
-            </td>
         `;
+        row.addEventListener('click', () => showIngredientDetails(ing.id));
         tableBody.appendChild(row);
     });
-
-    tableBody.querySelectorAll('.edit-btn').forEach(btn =>
-        btn.addEventListener('click', (e) => showIngredientModal(e.currentTarget.dataset.id)));
-    tableBody.querySelectorAll('.delete-btn').forEach(btn =>
-        btn.addEventListener('click', (e) => deleteIngredient(e.currentTarget.dataset.id)));
 }
 
 // === AFFICHAGE DES ICÔNES D'ALLERGÈNES ===
@@ -279,4 +285,56 @@ function deleteIngredient(ingredientId) {
         cancelLabel: 'Annuler',
         danger: true
     });
+}
+
+export function showIngredientDetails(ingredientId) {
+    const ingredient = getIngredientById(parseInt(ingredientId));
+    if (!ingredient) return;
+
+    const modal = document.getElementById('ingredient-details-modal');
+    const content = document.getElementById('ingredient-details-content');
+    if (!modal || !content) return;
+
+    const allergenDetails = EU_ALLERGENS.filter(a => ingredient.allergens && ingredient.allergens.includes(a.id));
+    const allergensHtml = allergenDetails.length > 0
+        ? allergenDetails.map(a => `<span class="allergen-badge-item" title="${a.description}">${a.icon} ${a.name}</span>`).join(' ')
+        : '<em>Aucun allergène renseigné.</em>';
+
+    content.innerHTML = `
+        <div class="details-layout">
+            <div class="details-header-info">
+                <h2>${escapeHTML(ingredient.name)}</h2>
+                <div class="details-meta-grid">
+                    <div><strong>Unité:</strong> ${escapeHTML(ingredient.unit)}</div>
+                    <div><strong>Famille:</strong> ${escapeHTML(ingredient.family || '—')}</div>
+                    <div><strong>Sous-famille:</strong> ${escapeHTML(ingredient.subfamily || '—')}</div>
+                </div>
+            </div>
+
+            <div class="details-grid-kpis">
+                <div class="kpi-card" style="grid-column: 1 / -1;">
+                    <span class="kpi-label">Prix Unitaire HT</span>
+                    <span class="kpi-value">${ingredient.price !== null && ingredient.price !== undefined ? formatCurrency3(ingredient.price) + ' / ' + escapeHTML(ingredient.unit) : '<span class="price-missing">Non spécifié (N/A)</span>'}</span>
+                </div>
+            </div>
+
+            <div class="details-section-title">Allergènes de la denrée</div>
+            <div class="details-allergens-box">
+                ${allergensHtml}
+            </div>
+        </div>
+    `;
+
+    // Hook up buttons
+    document.getElementById('details-edit-btn').onclick = () => {
+        modal.style.display = 'none';
+        showIngredientModal(ingredientId);
+    };
+
+    document.getElementById('details-delete-btn').onclick = () => {
+        deleteIngredient(ingredientId);
+        modal.style.display = 'none';
+    };
+
+    modal.style.display = 'flex';
 }
