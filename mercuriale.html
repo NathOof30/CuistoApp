@@ -25,6 +25,9 @@
             <h2>Liste des Denrées</h2>
             <div class="header-actions">
                 <input type="search" id="search-ingredient" placeholder="Rechercher une denrée...">
+                <select id="filter-family">
+                    <option value="">Toutes les familles</option>
+                </select>
                 <button id="add-ingredient-btn" class="button-primary">Ajouter une denrée</button>
             </div>
         </div>
@@ -33,11 +36,11 @@
             <table id="mercuriale-table">
                 <thead>
                     <tr>
-                        <th>Intitulé</th>
-                        <th>Unité</th>
-                        <th>Prix HT / unité</th>
-                        <th>Famille</th>
-                        <th>Sous-famille</th>
+                        <th class="sortable" data-sort="name">Intitulé <span class="sort-icon">↕</span></th>
+                        <th class="sortable" data-sort="unit">Unité <span class="sort-icon">↕</span></th>
+                        <th class="sortable" data-sort="price">Prix HT / unité <span class="sort-icon">↕</span></th>
+                        <th class="sortable" data-sort="family">Famille <span class="sort-icon">↕</span></th>
+                        <th class="sortable" data-sort="subfamily">Sous-famille <span class="sort-icon">↕</span></th>
                         <th>Allergènes</th>
                         <th>Actions</th>
                     </tr>

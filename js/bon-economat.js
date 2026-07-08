@@ -1,5 +1,6 @@
 import { mercuriale, recipes, VAT_RATE, getIngredientById, calculateRecipeCost, saveData } from '../data.js';
 import { formatCurrency, formatCurrency3, formatQuantity, formatQuantityPlain, escapeHTML } from './common.js';
+import { showToast } from './ui-feedback.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
 
@@ -47,7 +48,7 @@ function generateBonEconomat() {
     const selections = getSelectionsFromUI();
 
     if (selections.length === 0) {
-        alert("Veuillez sélectionner au moins une recette et indiquer le nombre de portions.");
+        showToast('Veuillez sélectionner au moins une recette et indiquer le nombre de portions.', 'warning');
         return;
     }
 
@@ -168,11 +169,11 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
         recipe.ingredients.forEach(ing => {
             tableHTML += `
                 <tr>
-                    <td>${escapeHTML(ing.name)}</td>
-                    <td>${formatQuantity(ing.quantity, ing.unit)}</td>
-                    <td>${escapeHTML(ing.unit)}</td>
-                    <td>${formatCurrency3(ing.unitPrice)}</td>
-                    <td>${formatCurrency(ing.totalCost)}</td>
+                    <td data-label="Intitulé">${escapeHTML(ing.name)}</td>
+                    <td data-label="Quantité">${formatQuantity(ing.quantity, ing.unit)}</td>
+                    <td data-label="Unité">${escapeHTML(ing.unit)}</td>
+                    <td data-label="Prix unitaire HT">${formatCurrency3(ing.unitPrice)}</td>
+                    <td data-label="Coût total HT">${formatCurrency(ing.totalCost)}</td>
                 </tr>
             `;
         });
@@ -195,10 +196,10 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
     summary.sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
         const row = `
             <tr>
-                <td>${escapeHTML(item.name)}</td>
-                <td>${formatQuantity(item.quantity, item.unit)}</td>
-                <td>${escapeHTML(item.unit)}</td>
-                <td>${formatCurrency(item.totalCost)}</td>
+                <td data-label="Denrée">${escapeHTML(item.name)}</td>
+                <td data-label="Quantité">${formatQuantity(item.quantity, item.unit)}</td>
+                <td data-label="Unité">${escapeHTML(item.unit)}</td>
+                <td data-label="Coût HT">${formatCurrency(item.totalCost)}</td>
             </tr>
         `;
         summaryTbody.insertAdjacentHTML('beforeend', row);
@@ -218,7 +219,7 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
 function exportToCSV() {
     const bonDataString = document.getElementById('bon-economat-results').dataset.bonData;
     if (!bonDataString) {
-        alert("Veuillez d'abord générer un bon d'économat.");
+        showToast("Veuillez d'abord générer un bon d'économat.", 'warning');
         return;
     }
     const bonData = JSON.parse(bonDataString);
@@ -252,7 +253,7 @@ function exportToCSV() {
 function exportToTXT() {
     const bonDataString = document.getElementById('bon-economat-results').dataset.bonData;
     if (!bonDataString) {
-        alert("Veuillez d'abord générer un bon d'économat.");
+        showToast("Veuillez d'abord générer un bon d'économat.", 'warning');
         return;
     }
     const bonData = JSON.parse(bonDataString);
@@ -289,7 +290,7 @@ function exportToTXT() {
 function exportToFixedTXT() {
     const bonDataString = document.getElementById('bon-economat-results').dataset.bonData;
     if (!bonDataString) {
-        alert("Veuillez d'abord générer un bon d'économat.");
+        showToast("Veuillez d'abord générer un bon d'économat.", 'warning');
         return;
     }
     const bonData = JSON.parse(bonDataString);

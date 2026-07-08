@@ -1,5 +1,5 @@
 import { mercuriale, recipes, calculateRecipeCost, getIngredientById } from '../data.js';
-import { formatCurrency, escapeHTML } from './common.js';
+import { formatCurrency, escapeHTML, formatPercent } from './common.js';
 
 // Utiliser les exports directement pour éviter l'état obsolète
 
@@ -31,6 +31,57 @@ export function initDashboard() {
 function displayStats() {
     document.getElementById('total-recipes').textContent = recipes.length;
     document.getElementById('total-ingredients').textContent = mercuriale.length;
+
+    // Calculate margins and profitability
+    let sumMargins = 0;
+    let countMargins = 0;
+    let bestRecipeName = 'Aucune';
+    let bestRecipeMargin = -1;
+
+    recipes.forEach(recipe => {
+        const totalCost = calculateRecipeCost(recipe);
+        const costPerServing = recipe.servings > 0 ? totalCost / recipe.servings : 0;
+        const salePriceHT = costPerServing * (recipe.multiplier || 0);
+        if (salePriceHT > 0) {
+            const grossMargin = ((salePriceHT - costPerServing) / salePriceHT) * 100;
+            sumMargins += grossMargin;
+            countMargins++;
+
+            if (grossMargin > bestRecipeMargin) {
+                bestRecipeMargin = grossMargin;
+                bestRecipeName = recipe.name;
+            }
+        }
+    });
+
+    const avgMargin = countMargins > 0 ? sumMargins / countMargins : 0;
+    const missingPricesCount = mercuriale.filter(ing => ing.price === null || ing.price === undefined || ing.price === '').length;
+    const healthPercent = mercuriale.length > 0 ? ((mercuriale.length - missingPricesCount) / mercuriale.length) * 100 : 100;
+
+    document.getElementById('avg-margin').textContent = formatPercent(avgMargin);
+    document.getElementById('top-recipe').textContent = bestRecipeName;
+    if (bestRecipeName !== 'Aucune') {
+        document.getElementById('top-recipe').title = `${bestRecipeName} (${formatPercent(bestRecipeMargin)} de marge)`;
+    }
+    document.getElementById('missing-prices').textContent = missingPricesCount;
+    document.getElementById('mercuriale-health').textContent = formatPercent(healthPercent, 0);
+
+    // Apply color coding to health and missing prices
+    const missingPricesEl = document.getElementById('missing-prices');
+    if (missingPricesCount > 0) {
+        missingPricesEl.style.color = 'var(--margin-low)';
+    } else {
+        missingPricesEl.style.color = 'var(--margin-high)';
+    }
+
+    const healthEl = document.getElementById('mercuriale-health');
+    if (healthPercent >= 90) {
+        healthEl.style.color = 'var(--margin-high)';
+    } else if (healthPercent >= 70) {
+        healthEl.style.color = 'var(--margin-medium)';
+    } else {
+        healthEl.style.color = 'var(--margin-low)';
+    }
 }
 
 export function displayNotifications() {

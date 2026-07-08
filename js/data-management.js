@@ -1,4 +1,5 @@
 import { recipes, mercuriale, setData, saveData } from '../data.js';
+import { showToast } from './ui-feedback.js';
 
 let fileInput;
 
@@ -77,24 +78,24 @@ function handleFileImport(event) {
             const data = JSON.parse(e.target.result);
             if (data && data.mercuriale && data.recipes) {
                 if (setData(data)) {
-                    alert('Données importées avec succès ! La page va maintenant se recharger.');
-                    window.location.reload();
+                    showToast('Données importées avec succès. Rechargement en cours...', 'success', 2000);
+                    setTimeout(() => window.location.reload(), 1500);
                 } else {
-                    alert('Erreur lors de la mise à jour des données.');
+                    showToast('Erreur lors de la mise à jour des données.', 'error');
                 }
             } else {
-                alert('Fichier JSON invalide. Il doit contenir les clés "mercuriale" et "recipes".');
+                showToast('Fichier JSON invalide. Il doit contenir les clés "mercuriale" et "recipes".', 'error');
             }
         } catch (error) {
             console.error('Erreur de parsing JSON:', error);
-            alert('Erreur lors de la lecture du fichier. Assurez-vous que le fichier est un JSON valide.');
+            showToast('Erreur lors de la lecture du fichier. Vérifiez que le fichier est un JSON valide.', 'error');
         } finally {
             // Reset file input value to allow importing the same file again
             event.target.value = null;
         }
     };
     reader.onerror = function() {
-        alert('Erreur lors de la lecture du fichier.');
+        showToast('Erreur lors de la lecture du fichier.', 'error');
         event.target.value = null;
     };
     reader.readAsText(file);

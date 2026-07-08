@@ -277,6 +277,15 @@ function setData(newData) {
   return false;
 }
 
+// === GÉNÉRATION D'IDS SÛRS (auto-incrémentés) ===
+function nextRecipeId() {
+  return recipes.length > 0 ? Math.max(...recipes.map(r => r.id)) + 1 : 1;
+}
+
+function nextIngredientId() {
+  return mercuriale.length > 0 ? Math.max(...mercuriale.map(i => i.id)) + 1 : 1;
+}
+
 export {
   // Données
   mercuriale,
@@ -305,5 +314,8 @@ export {
   // Fonctions allergènes
   getRecipeAllergens,
   getRecipeAllergenDetails,
-  ingredientHasAllergen
+  ingredientHasAllergen,
+  // Utilitaires ID
+  nextRecipeId,
+  nextIngredientId
 };

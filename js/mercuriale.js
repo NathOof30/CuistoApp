@@ -1,27 +1,65 @@
-import { mercuriale, recipes, getIngredientById, saveData, EU_ALLERGENS } from '../data.js';
+import { mercuriale, recipes, getIngredientById, saveData, EU_ALLERGENS, nextIngredientId } from '../data.js';
 import { formatCurrency, formatCurrency3, escapeHTML } from './common.js';
 import { displayNotifications } from './dashboard.js';
+import { showToast, showConfirm } from './ui-feedback.js';
 
-// Utiliser directement les exports pour éviter l'état obsolète
+let currentSortColumn = 'name';
+let currentSortDirection = 'asc';
 
 export function initMercurialePage() {
     const addIngredientBtn = document.getElementById('add-ingredient-btn');
     const modal = document.getElementById('ingredient-modal');
     const searchInput = document.getElementById('search-ingredient');
+    const filterSelect = document.getElementById('filter-family');
 
-    // Générer les checkboxes d'allergènes une seule fois
     generateAllergenCheckboxes();
-
+    populateFamilyFilter();
     renderMercurialeTable();
 
     addIngredientBtn.addEventListener('click', () => showIngredientModal());
-    searchInput.addEventListener('input', () => renderMercurialeTable(searchInput.value));
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', () => renderMercurialeTable());
+    }
+    if (filterSelect) {
+        filterSelect.addEventListener('change', () => renderMercurialeTable());
+    }
+
+    // Handle column sorting click events
+    document.querySelectorAll('#mercuriale-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const sortKey = th.dataset.sort;
+            if (currentSortColumn === sortKey) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = sortKey;
+                currentSortDirection = 'asc';
+            }
+            
+            // Update sort icon indicators in all headers
+            document.querySelectorAll('#mercuriale-table th.sortable').forEach(header => {
+                const iconSpan = header.querySelector('.sort-icon');
+                if (header.dataset.sort === currentSortColumn) {
+                    iconSpan.textContent = currentSortDirection === 'asc' ? '↑' : '↓';
+                } else {
+                    iconSpan.textContent = '↕';
+                }
+            });
+            renderMercurialeTable();
+        });
+    });
 
     const form = document.getElementById('ingredient-form');
     form.addEventListener('submit', handleIngredientFormSubmit);
-    document.getElementById('cancel-btn').addEventListener('click', () => {
-        modal.style.display = 'none';
+    document.getElementById('cancel-btn').addEventListener('click', () => closeModal(modal));
+
+    // Close on Escape handled globally in app.js now, but kept here just in case
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display !== 'none') closeModal(modal);
     });
+
+    // Close modal on click outside content
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
 
     if (localStorage.getItem('openIngredientModal') === 'true') {
         localStorage.removeItem('openIngredientModal');
@@ -29,11 +67,31 @@ export function initMercurialePage() {
     }
 }
 
+function closeModal(modal) {
+    modal.style.display = 'none';
+}
+
+// === GÉNÉRATION D'OPTIONS POUR LE FILTRE PAR FAMILLE ===
+function populateFamilyFilter() {
+    const filterSelect = document.getElementById('filter-family');
+    if (!filterSelect) return;
+    const currentVal = filterSelect.value;
+    
+    // Extract unique non-empty families from the mercuriale
+    const families = [...new Set(mercuriale.map(i => i.family).filter(Boolean))].sort();
+    
+    let html = '<option value="">Toutes les familles</option>';
+    families.forEach(fam => {
+        html += `<option value="${escapeHTML(fam)}" ${fam === currentVal ? 'selected' : ''}>${escapeHTML(fam)}</option>`;
+    });
+    
+    filterSelect.innerHTML = html;
+}
+
 // === GÉNÉRATION DES CHECKBOXES D'ALLERGÈNES ===
 function generateAllergenCheckboxes() {
     const container = document.getElementById('allergen-checkboxes');
     if (!container) return;
-
     container.innerHTML = EU_ALLERGENS.map(allergen => `
         <label class="allergen-checkbox-label" title="${allergen.description}">
             <input type="checkbox" name="allergens" value="${allergen.id}">
@@ -44,36 +102,59 @@ function generateAllergenCheckboxes() {
 }
 
 // === RENDU DU TABLEAU ===
-function renderMercurialeTable(searchTerm = '') {
+export function renderMercurialeTable() {
     const tableBody = document.querySelector('#mercuriale-table tbody');
+    if (!tableBody) return;
     tableBody.innerHTML = '';
 
-    const filteredMercuriale = mercuriale.filter(ing =>
-        ing.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ing.family && ing.family.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (ing.subfamily && ing.subfamily.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const searchInput = document.getElementById('search-ingredient');
+    const filterSelect = document.getElementById('filter-family');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const familyFilter = filterSelect ? filterSelect.value : '';
+
+    let filteredMercuriale = mercuriale.filter(ing => {
+        const matchesSearch = ing.name.toLowerCase().includes(searchTerm) ||
+            (ing.family && ing.family.toLowerCase().includes(searchTerm)) ||
+            (ing.subfamily && ing.subfamily.toLowerCase().includes(searchTerm));
+        const matchesFamily = !familyFilter || ing.family === familyFilter;
+        return matchesSearch && matchesFamily;
+    });
 
     if (filteredMercuriale.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Aucune denrée trouvée.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" class="table-empty">Aucune denrée trouvée.</td></tr>`;
         return;
     }
 
-    [...filteredMercuriale].sort((a, b) => a.name.localeCompare(b.name)).forEach(ing => {
+    // Trier les denrées
+    filteredMercuriale.sort((a, b) => {
+        let valA = a[currentSortColumn];
+        let valB = b[currentSortColumn];
+
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+
+        if (typeof valA === 'string') {
+            const cmp = valA.localeCompare(valB, 'fr', { sensitivity: 'base' });
+            return currentSortDirection === 'asc' ? cmp : -cmp;
+        } else {
+            // Comparaison numérique
+            return currentSortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+    });
+
+    filteredMercuriale.forEach(ing => {
         const row = document.createElement('tr');
         row.dataset.id = ing.id;
-
-        // Générer l'affichage des allergènes
         const allergensDisplay = renderAllergenIcons(ing.allergens);
 
         row.innerHTML = `
-            <td>${escapeHTML(ing.name)}</td>
-            <td>${escapeHTML(ing.unit)}</td>
-            <td>${ing.price !== null && ing.price !== undefined ? formatCurrency3(ing.price) : 'N/A'}</td>
-            <td>${escapeHTML(ing.family || 'N/A')}</td>
-            <td>${escapeHTML(ing.subfamily || 'N/A')}</td>
-            <td class="allergen-cell">${allergensDisplay}</td>
-            <td class="action-cell">
+            <td data-label="Intitulé">${escapeHTML(ing.name)}</td>
+            <td data-label="Unité">${escapeHTML(ing.unit)}</td>
+            <td data-label="Prix HT / unité" class="text-right font-mono">${ing.price !== null && ing.price !== undefined ? formatCurrency3(ing.price) : '<span class="price-missing">N/A</span>'}</td>
+            <td data-label="Famille">${escapeHTML(ing.family || '—')}</td>
+            <td data-label="Sous-famille">${escapeHTML(ing.subfamily || '—')}</td>
+            <td data-label="Allergènes" class="allergen-cell">${allergensDisplay}</td>
+            <td data-label="Actions" class="action-cell">
                 <button class="edit-btn" data-id="${ing.id}">Modifier</button>
                 <button class="delete-btn" data-id="${ing.id}">Supprimer</button>
             </td>
@@ -81,8 +162,10 @@ function renderMercurialeTable(searchTerm = '') {
         tableBody.appendChild(row);
     });
 
-    tableBody.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', (e) => showIngredientModal(e.target.dataset.id)));
-    tableBody.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', (e) => deleteIngredient(e.target.dataset.id)));
+    tableBody.querySelectorAll('.edit-btn').forEach(btn =>
+        btn.addEventListener('click', (e) => showIngredientModal(e.currentTarget.dataset.id)));
+    tableBody.querySelectorAll('.delete-btn').forEach(btn =>
+        btn.addEventListener('click', (e) => deleteIngredient(e.currentTarget.dataset.id)));
 }
 
 // === AFFICHAGE DES ICÔNES D'ALLERGÈNES ===
@@ -90,12 +173,10 @@ function renderAllergenIcons(allergens) {
     if (!allergens || allergens.length === 0) {
         return '<span class="no-allergen-text" title="Aucun allergène">–</span>';
     }
-
     const allergenDetails = EU_ALLERGENS.filter(a => allergens.includes(a.id));
     const icons = allergenDetails.map(a =>
         `<span class="allergen-icon-small" title="${a.name}: ${a.description}">${a.icon}</span>`
     ).join('');
-
     return `<div class="allergen-icons-container">${icons}</div>`;
 }
 
@@ -104,22 +185,19 @@ function showIngredientModal(ingredientId = null) {
     const modal = document.getElementById('ingredient-modal');
     const form = document.getElementById('ingredient-form');
     form.reset();
-
-    // Reset all allergen checkboxes
     form.querySelectorAll('input[name="allergens"]').forEach(cb => cb.checked = false);
 
     if (ingredientId) {
         const ingredient = getIngredientById(parseInt(ingredientId));
+        if (!ingredient) return;
         document.getElementById('modal-title').textContent = 'Modifier la denrée';
         document.getElementById('ingredient-id').value = ingredient.id;
         document.getElementById('ingredient-name').value = ingredient.name;
         document.getElementById('ingredient-unit').value = ingredient.unit;
-        // Afficher le prix avec 3 décimales
-        document.getElementById('ingredient-price').value = ingredient.price !== null && ingredient.price !== undefined ? ingredient.price.toFixed(3) : '';
-        document.getElementById('ingredient-family').value = ingredient.family;
-        document.getElementById('ingredient-subfamily').value = ingredient.subfamily;
-
-        // Cocher les allergènes de l'ingrédient
+        document.getElementById('ingredient-price').value =
+            ingredient.price !== null && ingredient.price !== undefined ? ingredient.price.toFixed(3) : '';
+        document.getElementById('ingredient-family').value = ingredient.family || '';
+        document.getElementById('ingredient-subfamily').value = ingredient.subfamily || '';
         if (Array.isArray(ingredient.allergens)) {
             ingredient.allergens.forEach(allergenId => {
                 const checkbox = form.querySelector(`input[name="allergens"][value="${allergenId}"]`);
@@ -130,7 +208,6 @@ function showIngredientModal(ingredientId = null) {
         document.getElementById('modal-title').textContent = 'Ajouter une denrée';
         document.getElementById('ingredient-id').value = '';
     }
-
     modal.style.display = 'flex';
 }
 
@@ -139,22 +216,20 @@ function handleIngredientFormSubmit(e) {
     e.preventDefault();
     const form = e.target;
     const ingredientId = form.querySelector('#ingredient-id').value;
-
     const priceValue = form.querySelector('#ingredient-price').value;
 
-    // Récupérer les allergènes sélectionnés
     const selectedAllergens = [];
     form.querySelectorAll('input[name="allergens"]:checked').forEach(cb => {
         selectedAllergens.push(cb.value);
     });
 
     const ingredientData = {
-        id: ingredientId ? parseInt(ingredientId) : Date.now(),
-        name: form.querySelector('#ingredient-name').value,
-        unit: form.querySelector('#ingredient-unit').value,
+        id: ingredientId ? parseInt(ingredientId) : nextIngredientId(),
+        name: form.querySelector('#ingredient-name').value.trim(),
+        unit: form.querySelector('#ingredient-unit').value.trim(),
         price: priceValue !== '' ? parseFloat(priceValue) : null,
-        family: form.querySelector('#ingredient-family').value,
-        subfamily: form.querySelector('#ingredient-subfamily').value,
+        family: form.querySelector('#ingredient-family').value.trim(),
+        subfamily: form.querySelector('#ingredient-subfamily').value.trim(),
         allergens: selectedAllergens
     };
 
@@ -166,22 +241,42 @@ function handleIngredientFormSubmit(e) {
     }
 
     saveData(recipes, mercuriale);
+    populateFamilyFilter();
     renderMercurialeTable();
     document.getElementById('ingredient-modal').style.display = 'none';
+    showToast(ingredientId ? 'Denrée modifiée avec succès.' : 'Denrée ajoutée avec succès.', 'success');
 
-    // Also update dashboard notifications if visible
     if (document.getElementById('notifications-list')) {
         displayNotifications();
     }
 }
 
 function deleteIngredient(ingredientId) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette denrée ? Cela pourrait affecter des recettes existantes.')) {
+    const usedIn = recipes.filter(r =>
+        r.ingredients && r.ingredients.some(i => i.ingredientId == ingredientId)
+    );
+    const ingredient = getIngredientById(parseInt(ingredientId));
+    const name = ingredient ? escapeHTML(ingredient.name) : 'cette denrée';
+
+    let message = `Supprimer <strong>${name}</strong> ?`;
+    if (usedIn.length > 0) {
+        const recipeNames = usedIn.map(r => `<em>${escapeHTML(r.name)}</em>`).join(', ');
+        message += `<br><br>⚠️ Elle est utilisée dans ${usedIn.length} recette(s) : ${recipeNames}.<br>Les calculs de coûts de ces recettes seront impactés.`;
+    }
+
+    showConfirm(message, () => {
         const idx = mercuriale.findIndex(i => i.id == ingredientId);
         if (idx !== -1) {
             mercuriale.splice(idx, 1);
             saveData(recipes, mercuriale);
         }
+        populateFamilyFilter();
         renderMercurialeTable();
-    }
+        showToast('Denrée supprimée.', 'warning');
+    }, {
+        title: 'Supprimer une denrée',
+        confirmLabel: 'Supprimer',
+        cancelLabel: 'Annuler',
+        danger: true
+    });
 }

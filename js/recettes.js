@@ -4,11 +4,14 @@ import {
     EU_ALLERGENS, DEFAULT_HOURLY_RATE,
     calculateLaborCostPerServing, calculateTotalCostPerServing,
     calculateNetMargin, calculateHourlyProfitability, calculateSuggestedPrice,
-    getRecipeAllergens, getRecipeAllergenDetails
+    getRecipeAllergens, getRecipeAllergenDetails, nextRecipeId
 } from '../data.js';
 import { formatCurrency, formatCurrency3, formatPercent, formatDuration, escapeHTML, formatQuantityInput } from './common.js';
+import { showToast, showConfirm } from './ui-feedback.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
+let currentSortColumn = 'name';
+let currentSortDirection = 'asc';
 
 export function initRecettesPage() {
     const tableBody = document.querySelector('#recipes-table tbody');
@@ -18,15 +21,52 @@ export function initRecettesPage() {
 
     renderRecipesTable();
 
-    searchInput.addEventListener('input', () => renderRecipesTable(searchInput.value));
+    if (searchInput) {
+        searchInput.addEventListener('input', () => renderRecipesTable());
+    }
+    
     addRecipeBtn.addEventListener('click', () => showRecipeModal());
+
+    // Hook up sorting click handlers on all sortable headers
+    document.querySelectorAll('#recipes-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const sortKey = th.dataset.sort;
+            if (currentSortColumn === sortKey) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = sortKey;
+                currentSortDirection = 'asc';
+            }
+            
+            // Update sort icon indicators in all headers
+            document.querySelectorAll('#recipes-table th.sortable').forEach(header => {
+                const iconSpan = header.querySelector('.sort-icon');
+                if (header.dataset.sort === currentSortColumn) {
+                    iconSpan.textContent = currentSortDirection === 'asc' ? '↑' : '↓';
+                } else {
+                    iconSpan.textContent = '↕';
+                }
+            });
+            renderRecipesTable();
+        });
+    });
 
     const form = document.getElementById('recipe-form');
     form.addEventListener('submit', handleFormSubmit);
-    document.getElementById('cancel-btn').addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
+    document.getElementById('cancel-btn').addEventListener('click', () => { modal.style.display = 'none'; });
     document.getElementById('add-ingredient-row-btn').addEventListener('click', () => addIngredientRow());
+
+    // Fermeture par Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const recipeModal = document.getElementById('recipe-modal');
+            const allergenModal = document.getElementById('allergen-modal');
+            if (recipeModal && recipeModal.style.display !== 'none') recipeModal.style.display = 'none';
+            if (allergenModal && allergenModal.style.display !== 'none') allergenModal.style.display = 'none';
+        }
+    });
+    // Fermeture en cliquant sur l'overlay
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
 
     // Listen for input changes within the form to update costs in real-time
     form.addEventListener('input', (e) => {
@@ -47,31 +87,67 @@ export function initRecettesPage() {
 }
 
 // === RENDU DU TABLEAU PRINCIPAL ===
-function renderRecipesTable(searchTerm = '') {
+export function renderRecipesTable() {
     const tableBody = document.querySelector('#recipes-table tbody');
+    if (!tableBody) return;
     tableBody.innerHTML = '';
 
-    const filteredRecipes = recipes
-        .filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        .sort((a, b) => a.name.localeCompare(b.name)); // Tri alphabétique
+    const searchInput = document.getElementById('search-recipe');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    const filteredRecipes = recipes.filter(r => r.name.toLowerCase().includes(searchTerm));
 
     if (filteredRecipes.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="11" style="text-align:center;">Aucune recette trouvée.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="11" class="table-empty">Aucune recette trouvée.</td></tr>`;
         return;
     }
 
-    filteredRecipes.forEach(recipe => {
+    // Calculer les données de chaque recette pour le tri
+    const computedRecipes = filteredRecipes.map(recipe => {
         const totalCost = calculateRecipeCost(recipe);
         const costPerServing = recipe.servings > 0 ? totalCost / recipe.servings : 0;
         const salePriceHT = costPerServing * (recipe.multiplier || 0);
         const salePriceTTC = salePriceHT * (1 + VAT_RATE);
+        const grossMargin = salePriceHT > 0 ? ((salePriceHT - costPerServing) / salePriceHT) * 100 : 0;
+        const netMargin = calculateNetMargin(recipe);
+        const hourlyProfit = calculateHourlyProfitability(recipe);
 
-        // Calcul de la marge brute : ((prix vente HT - coût matière/portion) / prix vente HT) * 100
-        let grossMargin = 0;
+        return {
+            recipe,
+            name: recipe.name || '',
+            servings: recipe.servings || 0,
+            multiplier: recipe.multiplier || 0,
+            totalCost,
+            costPerServing,
+            salePriceHT,
+            salePriceTTC,
+            grossMargin,
+            netMargin,
+            hourlyProfit
+        };
+    });
+
+    // Trier les recettes calculées
+    computedRecipes.sort((a, b) => {
+        let valA = a[currentSortColumn];
+        let valB = b[currentSortColumn];
+
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+
+        if (typeof valA === 'string') {
+            const cmp = valA.localeCompare(valB, 'fr', { sensitivity: 'base' });
+            return currentSortDirection === 'asc' ? cmp : -cmp;
+        } else {
+            return currentSortDirection === 'asc' ? valA - valB : valB - valA;
+        }
+    });
+
+    computedRecipes.forEach(({ recipe, totalCost, costPerServing, salePriceHT, salePriceTTC, grossMargin, netMargin, hourlyProfit }) => {
+        // Marge brute classes & display
         let marginDisplay = 'N/A';
         let marginClass = '';
         if (salePriceHT > 0) {
-            grossMargin = ((salePriceHT - costPerServing) / salePriceHT) * 100;
             marginDisplay = formatPercent(grossMargin);
             if (grossMargin >= 50) {
                 marginClass = 'margin-high';
@@ -82,8 +158,7 @@ function renderRecipesTable(searchTerm = '') {
             }
         }
 
-        // Calcul de la marge nette (incluant main d'œuvre et frais)
-        const netMargin = calculateNetMargin(recipe);
+        // Marge nette classes & display
         let netMarginDisplay = 'N/A';
         let netMarginClass = '';
         if (recipe.productionTime && recipe.productionTime > 0) {
@@ -97,8 +172,7 @@ function renderRecipesTable(searchTerm = '') {
             }
         }
 
-        // Rentabilité horaire
-        const hourlyProfit = calculateHourlyProfitability(recipe);
+        // Rentabilité horaire classes & display
         let hourlyProfitDisplay = 'N/A';
         let hourlyProfitClass = '';
         if (recipe.productionTime && recipe.productionTime > 0) {
@@ -118,22 +192,22 @@ function renderRecipesTable(searchTerm = '') {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>
+            <td data-label="Recette">
                 <div class="recipe-name-cell">
                     ${escapeHTML(recipe.name)}
                     ${allergensHtml}
                 </div>
             </td>
-            <td>${recipe.servings || 'N/A'}</td>
-            <td>${recipe.multiplier || 'N/A'}</td>
-            <td class="text-right">${formatCurrency3(totalCost)}</td>
-            <td class="text-right">${formatCurrency3(costPerServing)}</td>
-            <td class="text-right">${formatCurrency3(salePriceHT)}</td>
-            <td class="text-right">${formatCurrency3(salePriceTTC)}</td>
-            <td><span class="margin-badge ${marginClass}">${marginDisplay}</span></td>
-            <td><span class="margin-badge ${netMarginClass}" title="Marge nette (après main d'œuvre et frais)">${netMarginDisplay}</span></td>
-            <td><span class="profitability-badge ${hourlyProfitClass}" title="Rentabilité horaire">${hourlyProfitDisplay}</span></td>
-            <td class="action-cell">
+            <td data-label="Portions" class="font-mono text-center">${recipe.servings || 'N/A'}</td>
+            <td data-label="CM" class="font-mono text-center">${recipe.multiplier || 'N/A'}</td>
+            <td data-label="Coût total" class="text-right font-mono">${formatCurrency3(totalCost)}</td>
+            <td data-label="Coût / portion" class="text-right font-mono">${formatCurrency3(costPerServing)}</td>
+            <td data-label="PV HT" class="text-right font-mono">${formatCurrency3(salePriceHT)}</td>
+            <td data-label="PV TTC" class="text-right font-mono">${formatCurrency3(salePriceTTC)}</td>
+            <td data-label="Marge brute" class="text-center"><span class="margin-badge ${marginClass}">${marginDisplay}</span></td>
+            <td data-label="Marge nette" class="text-center"><span class="margin-badge ${netMarginClass}" title="Marge nette (après main d'œuvre et frais)">${netMarginDisplay}</span></td>
+            <td data-label="€/heure" class="text-center"><span class="profitability-badge ${hourlyProfitClass}" title="Rentabilité horaire">${hourlyProfitDisplay}</span></td>
+            <td data-label="Actions" class="action-cell">
                 <button class="duplicate-btn" data-id="${recipe.id}">Dupliquer</button>
                 <button class="edit-btn" data-id="${recipe.id}">Modifier</button>
                 <button class="delete-btn" data-id="${recipe.id}">Supprimer</button>
@@ -432,7 +506,7 @@ function handleFormSubmit(e) {
     const productionTimeInput = form.querySelector('#recipe-production-time');
 
     const recipeData = {
-        id: recipeId ? parseInt(recipeId) : Date.now(),
+        id: recipeId ? parseInt(recipeId) : nextRecipeId(),
         name: form.querySelector('#recipe-name').value,
         servings: parseInt(form.querySelector('#recipe-servings').value),
         multiplier: parseFloat(form.querySelector('#recipe-multiplier').value),
@@ -459,13 +533,14 @@ function handleFormSubmit(e) {
     saveData(recipes, mercuriale);
     renderRecipesTable();
     document.getElementById('recipe-modal').style.display = 'none';
+    showToast(recipeId ? 'Recette modifiée avec succès.' : 'Recette ajoutée avec succès.', 'success');
 }
 
 function duplicateRecipe(recipeId) {
     const original = recipes.find(r => r.id == recipeId);
     if (!original) return;
     const copy = {
-        id: Date.now(),
+        id: nextRecipeId(),
         name: `${original.name} (copie)`,
         servings: original.servings,
         multiplier: original.multiplier,
@@ -481,12 +556,20 @@ function duplicateRecipe(recipeId) {
 }
 
 function deleteRecipe(recipeId) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette recette ?')) {
+    const recipe = recipes.find(r => r.id == recipeId);
+    const name = recipe ? escapeHTML(recipe.name) : 'cette recette';
+    showConfirm(`Supprimer la recette <strong>${name}</strong> ?`, () => {
         const idx = recipes.findIndex(r => r.id == recipeId);
         if (idx !== -1) {
             recipes.splice(idx, 1);
             saveData(recipes, mercuriale);
         }
         renderRecipesTable();
-    }
+        showToast('Recette supprimée.', 'warning');
+    }, {
+        title: 'Supprimer une recette',
+        confirmLabel: 'Supprimer',
+        cancelLabel: 'Annuler',
+        danger: true
+    });
 }
