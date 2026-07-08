@@ -2,20 +2,24 @@ export function formatCurrency(amount) {
     if (typeof amount !== 'number') {
         amount = 0;
     }
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
-}
-
-// Format avec 3 décimales pour plus de précision (ex: coûts de recettes)
-export function formatCurrency3(amount) {
-    if (typeof amount !== 'number') {
-        amount = 0;
+    // Arrondir à la dizaine de centimes supérieure (0.10 €)
+    let rounded = Math.ceil(amount * 10) / 10;
+    // Si le prix unitaire est très faible (inférieur à 10 cts, ex: ingrédients au gramme),
+    // arrondir au centime supérieur pour éviter de gonfler artificiellement à 0.10 €
+    if (amount > 0 && amount < 0.10) {
+        rounded = Math.ceil(amount * 100) / 100;
     }
     return new Intl.NumberFormat('fr-FR', {
         style: 'currency',
         currency: 'EUR',
-        minimumFractionDigits: 3,
-        maximumFractionDigits: 3
-    }).format(amount);
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(rounded);
+}
+
+// Format avec 3 décimales désormais aligné sur 2 décimales pour respecter la consigne
+export function formatCurrency3(amount) {
+    return formatCurrency(amount);
 }
 
 const COUNTABLE_UNITS = [

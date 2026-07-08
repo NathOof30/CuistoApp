@@ -1025,6 +1025,7 @@ body.dark-mode tbody tr:nth-child(even) {
 .details-header-info {
     border-bottom: 2px solid var(--border-color);
     padding-bottom: 1rem;
+    flex-shrink: 0;
 }
 
 .details-header-info h2 {
@@ -1046,6 +1047,7 @@ body.dark-mode tbody tr:nth-child(even) {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
+    flex-shrink: 0;
 }
 
 .kpi-card {
@@ -1085,12 +1087,14 @@ body.dark-mode tbody tr:nth-child(even) {
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.5rem;
     margin-top: 0.5rem;
+    flex-shrink: 0;
 }
 
 .details-ingredients-list-wrapper {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-sm);
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .details-ingredients-table {
@@ -1129,12 +1133,14 @@ body.dark-mode tbody tr:nth-child(even) {
     font-size: 0.95rem;
     line-height: 1.6;
     color: var(--text-light);
+    flex-shrink: 0;
 }
 
 .details-allergens-box {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 .allergen-badge-item {

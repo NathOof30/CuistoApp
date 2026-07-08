@@ -73,12 +73,18 @@
                             placeholder="Laissez vide si non connu">
                     </div>
                     <div class="form-group">
-                        <label for="ingredient-family">Famille</label>
-                        <input type="text" id="ingredient-family" placeholder="Ex: Légumerie">
+                        <label for="ingredient-family-select">Famille</label>
+                        <select id="ingredient-family-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <input type="text" id="ingredient-family-custom" placeholder="Nouvelle famille..." style="display: none; margin-top: 0.5rem;">
                     </div>
                     <div class="form-group">
-                        <label for="ingredient-subfamily">Sous-famille</label>
-                        <input type="text" id="ingredient-subfamily" placeholder="Ex: Fruits">
+                        <label for="ingredient-subfamily-select">Sous-famille</label>
+                        <select id="ingredient-subfamily-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <input type="text" id="ingredient-subfamily-custom" placeholder="Nouvelle sous-famille..." style="display: none; margin-top: 0.5rem;">
                     </div>
                 </div>
 

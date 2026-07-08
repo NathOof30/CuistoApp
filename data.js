@@ -84,9 +84,8 @@ let recipes = [
   }
 ];
 
-// Fonctions utilitaires de données
 function getIngredientById(id) {
-  return mercuriale.find(ing => ing.id === id);
+  return id ? mercuriale.find(ing => ing.id === parseInt(id)) : undefined;
 }
 
 function calculateRecipeCost(recipe) {

@@ -193,6 +193,46 @@ function showIngredientModal(ingredientId = null) {
     form.reset();
     form.querySelectorAll('input[name="allergens"]').forEach(cb => cb.checked = false);
 
+    // Récupérer les familles et sous-familles uniques existantes
+    const uniqueFamilies = [...new Set(mercuriale.map(i => i.family).filter(Boolean))].sort();
+    const uniqueSubfamilies = [...new Set(mercuriale.map(i => i.subfamily).filter(Boolean))].sort();
+
+    const familySelect = document.getElementById('ingredient-family-select');
+    const familyCustomInput = document.getElementById('ingredient-family-custom');
+    const subfamilySelect = document.getElementById('ingredient-subfamily-select');
+    const subfamilyCustomInput = document.getElementById('ingredient-subfamily-custom');
+
+    // Peupler le select Famille
+    familySelect.innerHTML = `<option value="">— Choisir...</option>` +
+        uniqueFamilies.map(fam => `<option value="${escapeHTML(fam)}">${escapeHTML(fam)}</option>`).join('') +
+        `<option value="__other__">[Autre...]</option>`;
+
+    // Peupler le select Sous-famille
+    subfamilySelect.innerHTML = `<option value="">— Choisir...</option>` +
+        uniqueSubfamilies.map(sub => `<option value="${escapeHTML(sub)}">${escapeHTML(sub)}</option>`).join('') +
+        `<option value="__other__">[Autre...]</option>`;
+
+    // Gestion de l'affichage du champ personnalisé "Autre..."
+    familySelect.onchange = () => {
+        if (familySelect.value === '__other__') {
+            familyCustomInput.style.display = 'block';
+            familyCustomInput.required = true;
+        } else {
+            familyCustomInput.style.display = 'none';
+            familyCustomInput.required = false;
+        }
+    };
+
+    subfamilySelect.onchange = () => {
+        if (subfamilySelect.value === '__other__') {
+            subfamilyCustomInput.style.display = 'block';
+            subfamilyCustomInput.required = true;
+        } else {
+            subfamilyCustomInput.style.display = 'none';
+            subfamilyCustomInput.required = false;
+        }
+    };
+
     if (ingredientId) {
         const ingredient = getIngredientById(parseInt(ingredientId));
         if (!ingredient) return;
@@ -202,8 +242,41 @@ function showIngredientModal(ingredientId = null) {
         document.getElementById('ingredient-unit').value = ingredient.unit;
         document.getElementById('ingredient-price').value =
             ingredient.price !== null && ingredient.price !== undefined ? ingredient.price.toFixed(3) : '';
-        document.getElementById('ingredient-family').value = ingredient.family || '';
-        document.getElementById('ingredient-subfamily').value = ingredient.subfamily || '';
+
+        // Charger Famille
+        if (ingredient.family) {
+            if (uniqueFamilies.includes(ingredient.family)) {
+                familySelect.value = ingredient.family;
+                familyCustomInput.style.display = 'none';
+                familyCustomInput.value = '';
+            } else {
+                familySelect.value = '__other__';
+                familyCustomInput.style.display = 'block';
+                familyCustomInput.value = ingredient.family;
+            }
+        } else {
+            familySelect.value = '';
+            familyCustomInput.style.display = 'none';
+            familyCustomInput.value = '';
+        }
+
+        // Charger Sous-famille
+        if (ingredient.subfamily) {
+            if (uniqueSubfamilies.includes(ingredient.subfamily)) {
+                subfamilySelect.value = ingredient.subfamily;
+                subfamilyCustomInput.style.display = 'none';
+                subfamilyCustomInput.value = '';
+            } else {
+                subfamilySelect.value = '__other__';
+                subfamilyCustomInput.style.display = 'block';
+                subfamilyCustomInput.value = ingredient.subfamily;
+            }
+        } else {
+            subfamilySelect.value = '';
+            subfamilyCustomInput.style.display = 'none';
+            subfamilyCustomInput.value = '';
+        }
+
         if (Array.isArray(ingredient.allergens)) {
             ingredient.allergens.forEach(allergenId => {
                 const checkbox = form.querySelector(`input[name="allergens"][value="${allergenId}"]`);
@@ -213,6 +286,12 @@ function showIngredientModal(ingredientId = null) {
     } else {
         document.getElementById('modal-title').textContent = 'Ajouter une denrée';
         document.getElementById('ingredient-id').value = '';
+        familySelect.value = '';
+        familyCustomInput.style.display = 'none';
+        familyCustomInput.value = '';
+        subfamilySelect.value = '';
+        subfamilyCustomInput.style.display = 'none';
+        subfamilyCustomInput.value = '';
     }
     modal.style.display = 'flex';
 }
@@ -229,13 +308,25 @@ function handleIngredientFormSubmit(e) {
         selectedAllergens.push(cb.value);
     });
 
+    // Récupérer la famille (select ou input libre)
+    let family = form.querySelector('#ingredient-family-select').value;
+    if (family === '__other__') {
+        family = form.querySelector('#ingredient-family-custom').value.trim();
+    }
+
+    // Récupérer la sous-famille (select ou input libre)
+    let subfamily = form.querySelector('#ingredient-subfamily-select').value;
+    if (subfamily === '__other__') {
+        subfamily = form.querySelector('#ingredient-subfamily-custom').value.trim();
+    }
+
     const ingredientData = {
         id: ingredientId ? parseInt(ingredientId) : nextIngredientId(),
         name: form.querySelector('#ingredient-name').value.trim(),
         unit: form.querySelector('#ingredient-unit').value.trim(),
         price: priceValue !== '' ? parseFloat(priceValue) : null,
-        family: form.querySelector('#ingredient-family').value.trim(),
-        subfamily: form.querySelector('#ingredient-subfamily').value.trim(),
+        family: family,
+        subfamily: subfamily,
         allergens: selectedAllergens
     };
 

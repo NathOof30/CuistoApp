@@ -241,11 +241,8 @@ function renderAllergenBadges(allergens, recipeId) {
         return '<span class="no-allergen-badge" title="Aucun allergène identifié">✓</span>';
     }
 
-    const icons = allergens.slice(0, 3).map(a => a.icon).join('');
-    const moreCount = allergens.length > 3 ? `+${allergens.length - 3}` : '';
-
     return `<button type="button" class="allergen-indicator" data-recipe-id="${recipeId}" title="Contient ${allergens.length} allergène(s) - Cliquer pour détails">
-        ⚠️ ${icons}${moreCount}
+        ⚠️
     </button>`;
 }
 
