@@ -122,4 +122,15 @@ Liste stricte des 14 allergènes comprenant leur `id`, `name`, `description` jur
 1. **Relationnelle de fait :** Bien qu'en JSON (NoSQL), l'architecture est pensée comme un modèle relationnel SQL. L'objet "ingrédient" dans une "recette" ne copie pas le prix et le nom de l'ingrédient, mais stocke l'ID (`ingredientId`). 
   > *Atout :* Lorsqu'un prix change dans la mercuriale, le coût de toutes les recettes est automatiquement et instantanément mis à jour, ce qui garantit une réalité comptable toujours exacte.
 2. **Propagation Automatique des Allergènes :** La méthode en arborescence permet d'avertir automatiquement le Chef si un produit contenant des allergènes cachés est utilisé dans une recette. Si l'allergène est tagué dans la "sauce soja" (dans la mercuriale), tout plat utilisant cette sauce héritera immédiatement de l'alerte "Soja" et "Gluten". 
-3. **Optimisée pour une exécution locale :** L'usage d'ESModules allège le code et accélère le chargement, conservant un outil ultra-réactif avec la fluidité typique des solutions locales sans temps de requête réseau.
+3. **Exécution fluide (En ligne & Locale) :** Grâce à son architecture 100 % front-end et l'utilisation des modules ES (ESModules), le chargement est ultra-rapide et l'application est extrêmement réactive, que ce soit en ligne sur GitHub Pages ou hébergée localement.
+
+---
+
+## 6. 🌐 Déploiement et Accès
+
+L'application est principalement hébergée sur **GitHub Pages** :
+- **Lien d'accès en ligne :** [https://nathoof30.github.io/CuistoApp/](https://nathoof30.github.io/CuistoApp/)
+
+### Exécution locale (Optionnel)
+Pour un usage hors-ligne, les fichiers statiques peuvent être servis localement par un serveur HTTP (ex: `python -m http.server` ou `npx http-server`). Le script de lancement automatisé `start-server.bat` est désormais optionnel et secondaire.
+

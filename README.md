@@ -1,36 +1,37 @@
-# Gestion Culinaire – Guide d’utilisation (offline)
+# Gestion Culinaire – Guide d’utilisation
 
-## Prérequis
+L'application est hébergée en ligne et accessible directement :
+👉 **[Accéder à l'application sur GitHub Pages](https://nathoof30.github.io/CuistoApp/)**
+
+---
+
+## Lancer l’application en local (Optionnel)
+
+Si vous préférez utiliser l'application hors-ligne ou localement, suivez les instructions ci-dessous.
+
+### Prérequis (pour l'usage local uniquement)
 - Windows, macOS ou Linux
-- Une des options suivantes pour servir les fichiers localement (pas d’Internet requis) :
+- Une des options suivantes pour servir les fichiers :
   - Python (recommandé) – version 3.x
   - OU Node.js + npx
 
-## Lancer l’application en local
-### Méthode la plus simple (Windows, double-clic)
-- Double-cliquez sur `start-server.bat` à la racine du projet. Le serveur démarre et votre navigateur s’ouvre sur l’application.
+### Lancement local
+1. Ouvrez un terminal (PowerShell ou Terminal).
+2. Placez-vous dans le dossier du projet.
+3. Démarrez un serveur local (choisissez UNE option) :
+   - **Option Python :**
+     ```powershell
+     py -m http.server 5500
+     ```
+   - **Option Node.js :**
+     ```powershell
+     npx http-server -p 5500 -c-1
+     ```
+4. Ouvrez votre navigateur sur `http://localhost:5500/index.html`.
 
-### Méthode manuelle (tous OS)
-1. Ouvrez PowerShell (Windows) ou Terminal (macOS/Linux).
-2. Placez-vous dans le dossier du projet:
-```powershell
-cd "C:\Users\natha\OneDrive\Documents\H\HTML\tableau_de_bord___gestion_culinaire_by_Nath"
-```
-3. Démarrez un petit serveur local (choisissez UNE option) :
-   - Option Python:
-```powershell
-py -m http.server 5500
-```
-   - Option Node.js (si Node est installé):
-```powershell
-npx http-server -p 5500 -c-1
-```
-4. Ouvrez votre navigateur sur:
-```
-http://localhost:5500/index.html
-```
-
-Important: Ouvrir directement les fichiers en `file://` désactive les modules ES et l’app ne fonctionne pas. Le petit serveur local est nécessaire même hors-ligne.
+> [!NOTE]
+> Ouvrir directement les fichiers HTML en double-cliquant dessus (`file://`) désactive les modules ES et l’application ne fonctionnera pas. Un serveur local est donc indispensable pour l'usage local.
+> Le script `start-server.bat` n'est plus activement recommandé et l'usage en ligne ou via les commandes ci-dessus est préférable.
 
 ## Données d’exemple
 - Un fichier `sample-data.json` est inclus à la racine du projet.
@@ -79,5 +80,5 @@ location.reload();
 - `sample-data.json`: jeu de données d’exemple à importer
 
 ## Notes
-- L’application fonctionne entièrement hors-ligne une fois servie localement.
+- L’application fonctionne entièrement dans le navigateur, soit directement en ligne via GitHub Pages, soit hors-ligne en local.
 - L’export CSV du bon d’économat est accessible après génération du bon.
