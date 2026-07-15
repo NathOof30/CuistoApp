@@ -1,10 +1,25 @@
-const VAT_RATE = 0.10; // 10%
+// === CONFIGURATION RENTABILITÉ GLOBALE (Modifiable par l'utilisateur) ===
+let VAT_RATE = 0.10;
+let CHARGED_HOURLY_RATE = 27.30;
+let OVERHEAD_RATE = 0.10;
+let TARGET_NET_MARGIN = 0.25;
 
-// === CONFIGURATION RENTABILITÉ (Modèle Prime Cost — SAS) ===
-// Coût horaire chargé SAS : 15.00 € net × 1.82 (charges salariales + patronales)
-const CHARGED_HOURLY_RATE = 27.30;
-const OVERHEAD_RATE = 0.10;       // 10% du Prime Cost (CM + MO)
-const TARGET_NET_MARGIN = 0.25;   // Marge nette cible (25%)
+function updateGlobalSettings() {
+  const vatVal = localStorage.getItem('settings-vat-rate');
+  VAT_RATE = vatVal !== null ? parseFloat(vatVal) / 100 : 0.10;
+
+  const hrVal = localStorage.getItem('settings-charged-hourly-rate');
+  CHARGED_HOURLY_RATE = hrVal !== null ? parseFloat(hrVal) : 27.30;
+
+  const ohVal = localStorage.getItem('settings-overhead-rate');
+  OVERHEAD_RATE = ohVal !== null ? parseFloat(ohVal) / 100 : 0.10;
+
+  const marginVal = localStorage.getItem('settings-target-net-margin');
+  TARGET_NET_MARGIN = marginVal !== null ? parseFloat(marginVal) / 100 : 0.25;
+}
+
+// Initialiser les paramètres globaux dès le chargement du module
+updateGlobalSettings();
 
 // === 14 ALLERGÈNES RÉGLEMENTAIRES UE (Règlement UE 1169/2011) ===
 const EU_ALLERGENS = [
@@ -36,6 +51,15 @@ let mercuriale = [
   { id: 9, name: 'Huile d\'olive', price: 9.50, unit: 'L', family: 'Épicerie', subfamily: 'Huiles et vinaigres', allergens: [] },
   { id: 10, name: 'Sel fin', price: null, unit: 'g', family: 'Épicerie', subfamily: 'Condiments', allergens: [] },
   { id: 11, name: 'Ail', price: 0.005, unit: 'g', family: 'Légumerie', subfamily: 'Condiments', allergens: [] },
+  // Denrées de simulation
+  { id: 12, name: 'Poitrine de porc', price: 0.00655, unit: 'g', family: 'Boucherie', subfamily: 'Porc', allergens: [] },
+  { id: 13, name: 'Carotte', price: 0.002, unit: 'g', family: 'Légumerie', subfamily: 'Légumes', allergens: [] },
+  { id: 14, name: 'Vermicelles de soja', price: 0.0093, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
+  { id: 15, name: 'Champignons noirs', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
+  { id: 16, name: 'Sauce huîtres PANDA', price: 4.80, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['molluscs'] },
+  { id: 17, name: 'Huile de sésame', price: 15.00, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['sesame'] },
+  { id: 18, name: 'Poivre blanc moulu', price: 0.02, unit: 'g', family: 'Épicerie', subfamily: 'Épices', allergens: [] },
+  { id: 19, name: 'Galettes de riz 22CM (lot de 35)', price: 3.90, unit: 'lot', family: 'Épicerie', subfamily: 'Sec', allergens: [] }
 ];
 
 let recipes = [
@@ -79,6 +103,28 @@ let recipes = [
       { ingredientId: 2, quantity: 4 },
       { ingredientId: 6, quantity: 0.5 },
       { ingredientId: 3, quantity: 100 }
+    ]
+  },
+  {
+    id: 4,
+    name: 'Nems Kim Chi Pho (100 portions)',
+    servings: 100,
+    multiplier: 3.2,
+    productionTime: 120,
+    steps: "Préparer la farce en mélangeant tous les ingrédients hachés, hydrater les champignons noirs et les vermicelles de soja avant de les incorporer, assaisonner avec la sauce huîtres, l'huile de sésame, le sel, le sucre et le poivre blanc, rouler dans les galettes de riz réhydratées, puis frire en deux bains.",
+    ingredients: [
+      { ingredientId: 12, quantity: 2500 }, // Poitrine de porc (2.5 kg)
+      { ingredientId: 13, quantity: 1250 }, // Carotte (1.25 kg)
+      { ingredientId: 8, quantity: 1250 },  // Oignon (1.25 kg)
+      { ingredientId: 14, quantity: 500 },  // Vermicelles de soja (0.5 kg)
+      { ingredientId: 15, quantity: 200 },  // Champignons noirs (0.2 kg)
+      { ingredientId: 2, quantity: 10 },    // Oeuf (10 pièces)
+      { ingredientId: 10, quantity: 15 },   // Sel fin (15g)
+      { ingredientId: 3, quantity: 33 },    // Sucre (33g)
+      { ingredientId: 16, quantity: 0.135 }, // Sauce huîtres PANDA (0.135 L)
+      { ingredientId: 17, quantity: 0.035 }, // Huile de sésame (0.035 L)
+      { ingredientId: 18, quantity: 8 },    // Poivre blanc moulu (8g)
+      { ingredientId: 19, quantity: 3 }     // Galettes de riz (3 lots)
     ]
   }
 ];
@@ -261,6 +307,68 @@ function loadData() {
   if (savedMercuriale) {
     mercuriale = JSON.parse(savedMercuriale);
   }
+
+  // Injection intelligente des ingrédients de simulation s'ils manquent (par nom)
+  const defaultSimuIngredients = [
+    { id: 12, name: 'Poitrine de porc', price: 0.00655, unit: 'g', family: 'Boucherie', subfamily: 'Porc', allergens: [] },
+    { id: 13, name: 'Carotte', price: 0.002, unit: 'g', family: 'Légumerie', subfamily: 'Légumes', allergens: [] },
+    { id: 14, name: 'Vermicelles de soja', price: 0.0093, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
+    { id: 15, name: 'Champignons noirs', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
+    { id: 16, name: 'Sauce huîtres PANDA', price: 4.80, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['molluscs'] },
+    { id: 17, name: 'Huile de sésame', price: 15.00, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['sesame'] },
+    { id: 18, name: 'Poivre blanc moulu', price: 0.02, unit: 'g', family: 'Épicerie', subfamily: 'Épices', allergens: [] },
+    { id: 19, name: 'Galettes de riz 22CM (lot de 35)', price: 3.90, unit: 'lot', family: 'Épicerie', subfamily: 'Sec', allergens: [] }
+  ];
+
+  let modified = false;
+  defaultSimuIngredients.forEach(item => {
+    const exists = mercuriale.some(ing => ing.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+    if (!exists) {
+      const idConflict = mercuriale.some(ing => ing.id === item.id);
+      const newId = idConflict ? (mercuriale.length > 0 ? Math.max(...mercuriale.map(i => i.id)) + 1 : item.id) : item.id;
+      mercuriale.push({ ...item, id: newId });
+      modified = true;
+    }
+  });
+
+  // Injection de la recette de simulation
+  const nemRecipeName = 'Nems Kim Chi Pho (100 portions)';
+  const recipeExists = recipes.some(r => r.name.toLowerCase().trim() === nemRecipeName.toLowerCase().trim());
+  if (!recipeExists) {
+    const getIdByName = (name, fallbackId) => {
+      const found = mercuriale.find(ing => ing.name.toLowerCase().trim() === name.toLowerCase().trim());
+      return found ? found.id : fallbackId;
+    };
+
+    const newRecipe = {
+      id: recipes.length > 0 ? Math.max(...recipes.map(r => r.id)) + 1 : 4,
+      name: nemRecipeName,
+      servings: 100,
+      multiplier: 3.2,
+      productionTime: 120,
+      steps: "Préparer la farce en mélangeant tous les ingrédients hachés, hydrater les champignons noirs et les vermicelles de soja avant de les incorporer, assaisonner avec la sauce huîtres, l'huile de sésame, le sel, le sucre et le poivre blanc, rouler dans les galettes de riz réhydratées, puis frire en deux bains.",
+      ingredients: [
+        { ingredientId: getIdByName('Poitrine de porc', 12), quantity: 2500 },
+        { ingredientId: getIdByName('Carotte', 13), quantity: 1250 },
+        { ingredientId: getIdByName('Oignon', 8), quantity: 1250 },
+        { ingredientId: getIdByName('Vermicelles de soja', 14), quantity: 500 },
+        { ingredientId: getIdByName('Champignons noirs', 15), quantity: 200 },
+        { ingredientId: getIdByName('Oeuf', 2), quantity: 10 },
+        { ingredientId: getIdByName('Sel fin', 10), quantity: 15 },
+        { ingredientId: getIdByName('Sucre', 3), quantity: 33 },
+        { ingredientId: getIdByName('Sauce huîtres PANDA', 16), quantity: 0.135 },
+        { ingredientId: getIdByName('Huile de sésame', 17), quantity: 0.035 },
+        { ingredientId: getIdByName('Poivre blanc moulu', 18), quantity: 8 },
+        { ingredientId: getIdByName('Galettes de riz 22CM (lot de 35)', 19), quantity: 3 }
+      ]
+    };
+    recipes.push(newRecipe);
+    modified = true;
+  }
+
+  if (modified) {
+    saveData(recipes, mercuriale);
+  }
 }
 
 function isDataLoaded() {
@@ -302,6 +410,7 @@ export {
   CHARGED_HOURLY_RATE,
   OVERHEAD_RATE,
   TARGET_NET_MARGIN,
+  updateGlobalSettings,
   // Fonctions de base
   getIngredientById,
   calculateRecipeCost,
