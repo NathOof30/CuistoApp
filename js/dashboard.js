@@ -1,4 +1,4 @@
-import { mercuriale, recipes, calculateRecipeCost, getIngredientById } from '../data.js';
+import { mercuriale, recipes, calculateRecipeCost, calculateNetMargin, calculateActualPriceHTPerServing, getIngredientById } from '../data.js';
 import { formatCurrency, escapeHTML, formatPercent } from './common.js';
 
 // Utiliser les exports directement pour éviter l'état obsolète
@@ -39,16 +39,14 @@ function displayStats() {
     let bestRecipeMargin = -1;
 
     recipes.forEach(recipe => {
-        const totalCost = calculateRecipeCost(recipe);
-        const costPerServing = recipe.servings > 0 ? totalCost / recipe.servings : 0;
-        const salePriceHT = costPerServing * (recipe.multiplier || 0);
-        if (salePriceHT > 0) {
-            const grossMargin = ((salePriceHT - costPerServing) / salePriceHT) * 100;
-            sumMargins += grossMargin;
+        const netMargin = calculateNetMargin(recipe);
+        const actualPVHT = calculateActualPriceHTPerServing(recipe);
+        if (actualPVHT > 0) {
+            sumMargins += netMargin;
             countMargins++;
 
-            if (grossMargin > bestRecipeMargin) {
-                bestRecipeMargin = grossMargin;
+            if (netMargin > bestRecipeMargin) {
+                bestRecipeMargin = netMargin;
                 bestRecipeName = recipe.name;
             }
         }
