@@ -1,8 +1,9 @@
 import {
     mercuriale, recipes, VAT_RATE,
     getIngredientById, calculateRecipeCost, saveData,
-    EU_ALLERGENS, DEFAULT_HOURLY_RATE,
+    EU_ALLERGENS,
     calculateLaborCostPerServing, calculateTotalCostPerServing,
+    calculateActualPriceHTPerServing,
     calculateNetMargin, calculateHourlyProfitability, calculateSuggestedPrice,
     getRecipeAllergens, getRecipeAllergenDetails, nextRecipeId
 } from '../data.js';
@@ -82,7 +83,7 @@ export function initRecettesPage() {
 
     // Listen for input changes within the form to update costs in real-time
     form.addEventListener('input', (e) => {
-        if (e.target.matches('#recipe-servings, #recipe-multiplier, #recipe-production-time, #recipe-hourly-rate, .ingredient-quantity, .ingredient-select')) {
+        if (e.target.matches('#recipe-servings, #recipe-multiplier, #recipe-production-time, .ingredient-quantity, .ingredient-select')) {
             updateCostSummary();
         }
     });
@@ -294,12 +295,6 @@ function showRecipeModal(recipeId = null) {
     form.reset();
     document.getElementById('ingredient-list').innerHTML = '';
 
-    // Reset hourly rate to default
-    const hourlyRateInput = document.getElementById('recipe-hourly-rate');
-    if (hourlyRateInput) {
-        hourlyRateInput.value = DEFAULT_HOURLY_RATE;
-    }
-
     if (recipeId) {
         const recipe = recipes.find(r => r.id == recipeId);
         document.getElementById('modal-title').textContent = 'Modifier la recette';
@@ -388,7 +383,6 @@ function updateCostSummary() {
     const servings = parseFloat(form.querySelector('#recipe-servings').value) || 0;
     const multiplier = parseFloat(form.querySelector('#recipe-multiplier').value) || 0;
     const productionTime = parseFloat(form.querySelector('#recipe-production-time')?.value) || 0;
-    const hourlyRate = parseFloat(form.querySelector('#recipe-hourly-rate')?.value) || DEFAULT_HOURLY_RATE;
 
     let totalCost = 0;
     const allergenSet = new Set();
@@ -429,12 +423,12 @@ function updateCostSummary() {
         }
     });
 
-    // Calculs de rentabilité
-    const laborCostPerServing = calculateLaborCostPerServing(tempRecipe, hourlyRate);
-    const totalCostPerServing = calculateTotalCostPerServing(tempRecipe, hourlyRate);
-    const netMargin = calculateNetMargin(tempRecipe, hourlyRate);
-    const hourlyProfitability = calculateHourlyProfitability(tempRecipe, hourlyRate);
-    const suggestedPrice = calculateSuggestedPrice(tempRecipe, hourlyRate);
+    // Calculs de rentabilité (Prime Cost)
+    const laborCostPerServing = calculateLaborCostPerServing(tempRecipe);
+    const totalCostPerServing = calculateTotalCostPerServing(tempRecipe);
+    const netMargin = calculateNetMargin(tempRecipe);
+    const hourlyProfitability = calculateHourlyProfitability(tempRecipe);
+    const suggestedPrice = calculateSuggestedPrice(tempRecipe);
 
     // Mise à jour des affichages de base
     document.getElementById('total-cost-display').textContent = formatCurrency3(totalCost);
@@ -447,7 +441,8 @@ function updateCostSummary() {
     const totalCostServingEl = document.getElementById('total-cost-serving-display');
     const netMarginEl = document.getElementById('net-margin-display');
     const hourlyProfitEl = document.getElementById('hourly-profit-display');
-    const suggestedPriceEl = document.getElementById('suggested-price-display');
+    const suggestedPriceHTEl = document.getElementById('suggested-price-ht-display');
+    const suggestedPriceTTCEl = document.getElementById('suggested-price-ttc-display');
 
     if (laborCostEl) laborCostEl.textContent = formatCurrency3(laborCostPerServing);
     if (totalCostServingEl) totalCostServingEl.textContent = formatCurrency3(totalCostPerServing);
@@ -459,8 +454,11 @@ function updateCostSummary() {
         hourlyProfitEl.textContent = productionTime > 0 ? formatCurrency(hourlyProfitability) + '/h' : 'N/A';
         hourlyProfitEl.className = getProfitClass(hourlyProfitability, productionTime > 0);
     }
-    if (suggestedPriceEl) {
-        suggestedPriceEl.textContent = productionTime > 0 && servings > 0 ? formatCurrency(suggestedPrice) : 'N/A';
+    if (suggestedPriceHTEl) {
+        suggestedPriceHTEl.textContent = productionTime > 0 && servings > 0 ? formatCurrency(suggestedPrice.ht) : 'N/A';
+    }
+    if (suggestedPriceTTCEl) {
+        suggestedPriceTTCEl.textContent = productionTime > 0 && servings > 0 ? formatCurrency(suggestedPrice.ttc) : 'N/A';
     }
 
     // Affichage des allergènes dans le formulaire
@@ -679,7 +677,11 @@ export function showRecipeDetails(recipeId) {
                 </div>
                 <div class="kpi-card">
                     <span class="kpi-label">PV Conseillé HT</span>
-                    <span class="kpi-value">${recipe.productionTime && recipe.servings ? formatCurrency(suggestedPrice) : 'N/A'}</span>
+                    <span class="kpi-value">${recipe.productionTime && recipe.servings ? formatCurrency(suggestedPrice.ht) : 'N/A'}</span>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-label">PV Conseillé TTC</span>
+                    <span class="kpi-value">${recipe.productionTime && recipe.servings ? formatCurrency(suggestedPrice.ttc) : 'N/A'}</span>
                 </div>
                 <div class="kpi-card">
                     <span class="kpi-label">PV Réel HT</span>

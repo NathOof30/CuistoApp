@@ -1,11 +1,25 @@
-const VAT_RATE = 0.10; // 10%
+// === CONFIGURATION RENTABILITÉ GLOBALE (Modifiable par l'utilisateur) ===
+let VAT_RATE = 0.10;
+let CHARGED_HOURLY_RATE = 27.30;
+let OVERHEAD_RATE = 0.10;
+let TARGET_NET_MARGIN = 0.25;
 
-// === CONFIGURATION RENTABILITÉ ===
-// Ces variables peuvent être modifiées par le client
-const DEFAULT_HOURLY_RATE = 15.00; // Taux horaire main d'œuvre par défaut en €/h
-const LABOR_COST_MULTIPLIER = 1.45; // Multiplicateur charges patronales (inclut cotisations sociales ~45%)
-const OVERHEAD_PERCENTAGE = 0.15; // Frais généraux (électricité, eau, usure matériel) en % du coût matière
-const TARGET_NET_MARGIN = 0.25; // Marge nette cible (25%) pour le calcul du prix suggéré
+function updateGlobalSettings() {
+  const vatVal = localStorage.getItem('settings-vat-rate');
+  VAT_RATE = vatVal !== null ? parseFloat(vatVal) / 100 : 0.10;
+
+  const hrVal = localStorage.getItem('settings-charged-hourly-rate');
+  CHARGED_HOURLY_RATE = hrVal !== null ? parseFloat(hrVal) : 27.30;
+
+  const ohVal = localStorage.getItem('settings-overhead-rate');
+  OVERHEAD_RATE = ohVal !== null ? parseFloat(ohVal) / 100 : 0.10;
+
+  const marginVal = localStorage.getItem('settings-target-net-margin');
+  TARGET_NET_MARGIN = marginVal !== null ? parseFloat(marginVal) / 100 : 0.25;
+}
+
+// Initialiser les paramètres globaux dès le chargement du module
+updateGlobalSettings();
 
 // === 14 ALLERGÈNES RÉGLEMENTAIRES UE (Règlement UE 1169/2011) ===
 const EU_ALLERGENS = [
@@ -37,6 +51,15 @@ let mercuriale = [
   { id: 9, name: 'Huile d\'olive', price: 9.50, unit: 'L', family: 'Épicerie', subfamily: 'Huiles et vinaigres', allergens: [] },
   { id: 10, name: 'Sel fin', price: null, unit: 'g', family: 'Épicerie', subfamily: 'Condiments', allergens: [] },
   { id: 11, name: 'Ail', price: 0.005, unit: 'g', family: 'Légumerie', subfamily: 'Condiments', allergens: [] },
+  // Denrées de simulation
+  { id: 12, name: 'Poitrine de porc', price: 0.00655, unit: 'g', family: 'Boucherie', subfamily: 'Porc', allergens: [] },
+  { id: 13, name: 'Carotte', price: 0.002, unit: 'g', family: 'Légumerie', subfamily: 'Légumes', allergens: [] },
+  { id: 14, name: 'Vermicelles de soja', price: 0.0093, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
+  { id: 15, name: 'Champignons noirs', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
+  { id: 16, name: 'Sauce huîtres PANDA', price: 4.80, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['molluscs'] },
+  { id: 17, name: 'Huile de sésame', price: 15.00, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['sesame'] },
+  { id: 18, name: 'Poivre blanc moulu', price: 0.02, unit: 'g', family: 'Épicerie', subfamily: 'Épices', allergens: [] },
+  { id: 19, name: 'Galettes de riz 22CM (lot de 35)', price: 3.90, unit: 'lot', family: 'Épicerie', subfamily: 'Sec', allergens: [] }
 ];
 
 let recipes = [
@@ -81,6 +104,28 @@ let recipes = [
       { ingredientId: 6, quantity: 0.5 },
       { ingredientId: 3, quantity: 100 }
     ]
+  },
+  {
+    id: 4,
+    name: 'Nems Kim Chi Pho (100 portions)',
+    servings: 100,
+    multiplier: 3.2,
+    productionTime: 120,
+    steps: "Préparer la farce en mélangeant tous les ingrédients hachés, hydrater les champignons noirs et les vermicelles de soja avant de les incorporer, assaisonner avec la sauce huîtres, l'huile de sésame, le sel, le sucre et le poivre blanc, rouler dans les galettes de riz réhydratées, puis frire en deux bains.",
+    ingredients: [
+      { ingredientId: 12, quantity: 2500 }, // Poitrine de porc (2.5 kg)
+      { ingredientId: 13, quantity: 1250 }, // Carotte (1.25 kg)
+      { ingredientId: 8, quantity: 1250 },  // Oignon (1.25 kg)
+      { ingredientId: 14, quantity: 500 },  // Vermicelles de soja (0.5 kg)
+      { ingredientId: 15, quantity: 200 },  // Champignons noirs (0.2 kg)
+      { ingredientId: 2, quantity: 10 },    // Oeuf (10 pièces)
+      { ingredientId: 10, quantity: 15 },   // Sel fin (15g)
+      { ingredientId: 3, quantity: 33 },    // Sucre (33g)
+      { ingredientId: 16, quantity: 0.135 }, // Sauce huîtres PANDA (0.135 L)
+      { ingredientId: 17, quantity: 0.035 }, // Huile de sésame (0.035 L)
+      { ingredientId: 18, quantity: 8 },    // Poivre blanc moulu (8g)
+      { ingredientId: 19, quantity: 3 }     // Galettes de riz (3 lots)
+    ]
   }
 ];
 
@@ -99,98 +144,106 @@ function calculateRecipeCost(recipe) {
   }, 0);
 }
 
-// === FONCTIONS DE CALCUL DE RENTABILITÉ ===
+// === FONCTIONS DE CALCUL DE RENTABILITÉ (Prime Cost) ===
 
 /**
- * Calcule le coût main d'œuvre pour une recette
+ * Calcule le coût main d'œuvre total pour une recette
+ * Basé sur le coût horaire chargé SAS (27.30 €/h)
  * @param {Object} recipe - La recette
- * @param {number} hourlyRate - Taux horaire (défaut: DEFAULT_HOURLY_RATE)
  * @returns {number} - Coût main d'œuvre total
  */
-function calculateLaborCost(recipe, hourlyRate = DEFAULT_HOURLY_RATE) {
-  if (!recipe || !recipe.productionTime) return 0;
-  const hours = recipe.productionTime / 60;
-  return hours * hourlyRate * LABOR_COST_MULTIPLIER;
+function calculateLaborCost(recipe) {
+  const timeInMinutes = recipe?.productionTime || 0;
+  return (timeInMinutes / 60) * CHARGED_HOURLY_RATE;
 }
 
 /**
  * Calcule le coût main d'œuvre par portion
  * @param {Object} recipe - La recette
- * @param {number} hourlyRate - Taux horaire
  * @returns {number} - Coût main d'œuvre par portion
  */
-function calculateLaborCostPerServing(recipe, hourlyRate = DEFAULT_HOURLY_RATE) {
-  if (!recipe || !recipe.servings || recipe.servings <= 0) return 0;
-  return calculateLaborCost(recipe, hourlyRate) / recipe.servings;
+function calculateLaborCostPerServing(recipe) {
+  if (!recipe?.servings || recipe.servings <= 0) return 0;
+  return calculateLaborCost(recipe) / recipe.servings;
 }
 
 /**
- * Calcule les frais généraux (overhead)
+ * Calcule les frais généraux (10% du Prime Cost = CM + MO)
  * @param {Object} recipe - La recette
  * @returns {number} - Frais généraux totaux
  */
 function calculateOverheadCost(recipe) {
-  return calculateRecipeCost(recipe) * OVERHEAD_PERCENTAGE;
+  const cm = calculateRecipeCost(recipe);
+  const mo = calculateLaborCost(recipe);
+  return (cm + mo) * OVERHEAD_RATE;
 }
 
 /**
- * Calcule le coût complet par portion (matière + main d'œuvre + frais généraux)
+ * Calcule le coût de production complet par portion (CM + MO + FG) / portions
  * @param {Object} recipe - La recette
- * @param {number} hourlyRate - Taux horaire
  * @returns {number} - Coût complet par portion
  */
-function calculateTotalCostPerServing(recipe, hourlyRate = DEFAULT_HOURLY_RATE) {
-  if (!recipe || !recipe.servings || recipe.servings <= 0) return 0;
-  const materialCost = calculateRecipeCost(recipe) / recipe.servings;
-  const laborCost = calculateLaborCostPerServing(recipe, hourlyRate);
-  const overheadCost = calculateOverheadCost(recipe) / recipe.servings;
-  return materialCost + laborCost + overheadCost;
+function calculateTotalCostPerServing(recipe) {
+  if (!recipe?.servings || recipe.servings <= 0) return 0;
+  const cm = calculateRecipeCost(recipe);
+  const mo = calculateLaborCost(recipe);
+  const fg = (cm + mo) * OVERHEAD_RATE;
+  return (cm + mo + fg) / recipe.servings;
 }
 
 /**
- * Calcule la marge nette réelle (prenant en compte main d'œuvre et frais)
+ * Calcule le prix de vente HT actuel par portion (CM/portion × multiplicateur)
  * @param {Object} recipe - La recette
- * @param {number} hourlyRate - Taux horaire
+ * @returns {number} - Prix de vente HT actuel par portion
+ */
+function calculateActualPriceHTPerServing(recipe) {
+  const cm = calculateRecipeCost(recipe);
+  const servings = recipe?.servings || 1;
+  const multiplier = recipe?.multiplier || 1;
+  return (cm / servings) * multiplier;
+}
+
+/**
+ * Calcule la marge nette réelle après soustraction de toutes les charges
+ * @param {Object} recipe - La recette
  * @returns {number} - Marge nette en pourcentage
  */
-function calculateNetMargin(recipe, hourlyRate = DEFAULT_HOURLY_RATE) {
-  if (!recipe || !recipe.servings || recipe.servings <= 0) return 0;
-  const costPerServing = calculateRecipeCost(recipe) / recipe.servings;
-  const salePriceHT = costPerServing * (recipe.multiplier || 0);
-  if (salePriceHT <= 0) return 0;
-  const totalCost = calculateTotalCostPerServing(recipe, hourlyRate);
-  return ((salePriceHT - totalCost) / salePriceHT) * 100;
+function calculateNetMargin(recipe) {
+  const actualPVHT = calculateActualPriceHTPerServing(recipe);
+  const costPerServing = calculateTotalCostPerServing(recipe);
+  if (actualPVHT === 0) return 0;
+  return ((actualPVHT - costPerServing) / actualPVHT) * 100;
 }
 
 /**
- * Calcule la rentabilité horaire (profit par heure de travail)
+ * Calcule la rentabilité horaire complémentaire (bénéfice d'entreprise net par heure)
+ * Si >= 0 : le traiteur a payé ses courses, frais, et s'est versé 15€/h net
+ * Si < 0 : le prix de vente est trop bas
  * @param {Object} recipe - La recette
- * @param {number} hourlyRate - Taux horaire
  * @returns {number} - Profit par heure de travail en €
  */
-function calculateHourlyProfitability(recipe, hourlyRate = DEFAULT_HOURLY_RATE) {
-  if (!recipe || !recipe.servings || recipe.servings <= 0 || !recipe.productionTime) return 0;
-  const costPerServing = calculateRecipeCost(recipe) / recipe.servings;
-  const salePriceHT = costPerServing * (recipe.multiplier || 0);
-  const totalCostPerServing = calculateTotalCostPerServing(recipe, hourlyRate);
-  const profitPerServing = salePriceHT - totalCostPerServing;
-  const totalProfit = profitPerServing * recipe.servings;
-  const hours = recipe.productionTime / 60;
-  return hours > 0 ? totalProfit / hours : 0;
+function calculateHourlyProfitability(recipe) {
+  const servings = recipe?.servings || 1;
+  const actualPVHT = calculateActualPriceHTPerServing(recipe);
+  const costPerServing = calculateTotalCostPerServing(recipe);
+  const totalProfit = (actualPVHT - costPerServing) * servings;
+  const timeInHours = (recipe?.productionTime || 0) / 60;
+  if (timeInHours === 0) return 0;
+  return totalProfit / timeInHours;
 }
 
 /**
- * Suggère un prix de vente optimal basé sur la marge cible
+ * Suggère un prix de vente optimal basé sur la marge nette cible
  * @param {Object} recipe - La recette
- * @param {number} hourlyRate - Taux horaire
  * @param {number} targetMargin - Marge nette cible (défaut: TARGET_NET_MARGIN)
- * @returns {number} - Prix suggéré HT par portion
+ * @returns {{ht: number, ttc: number}} - Prix suggéré HT et TTC par portion
  */
-function calculateSuggestedPrice(recipe, hourlyRate = DEFAULT_HOURLY_RATE, targetMargin = TARGET_NET_MARGIN) {
-  const totalCost = calculateTotalCostPerServing(recipe, hourlyRate);
-  if (totalCost <= 0) return 0;
-  // Prix = Coût total / (1 - marge cible)
-  return totalCost / (1 - targetMargin);
+function calculateSuggestedPrice(recipe, targetMargin = TARGET_NET_MARGIN) {
+  const costPerServing = calculateTotalCostPerServing(recipe);
+  if (costPerServing <= 0) return { ht: 0, ttc: 0 };
+  const suggestedHT = costPerServing / (1 - targetMargin);
+  const suggestedTTC = suggestedHT * (1 + VAT_RATE);
+  return { ht: suggestedHT, ttc: suggestedTTC };
 }
 
 // === FONCTIONS ALLERGÈNES ===
@@ -254,6 +307,71 @@ function loadData() {
   if (savedMercuriale) {
     mercuriale = JSON.parse(savedMercuriale);
   }
+
+  // Injection intelligente unique pour les nems et ses ingrédients
+  const hasBeenInjected = localStorage.getItem('nems-recipe-injected');
+  if (!hasBeenInjected) {
+    const defaultSimuIngredients = [
+      { id: 12, name: 'Poitrine de porc', price: 0.00655, unit: 'g', family: 'Boucherie', subfamily: 'Porc', allergens: [] },
+      { id: 13, name: 'Carotte', price: 0.002, unit: 'g', family: 'Légumerie', subfamily: 'Légumes', allergens: [] },
+      { id: 14, name: 'Vermicelles de soja', price: 0.0093, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
+      { id: 15, name: 'Champignons noirs', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
+      { id: 16, name: 'Sauce huîtres PANDA', price: 4.80, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['molluscs'] },
+      { id: 17, name: 'Huile de sésame', price: 15.00, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['sesame'] },
+      { id: 18, name: 'Poivre blanc moulu', price: 0.02, unit: 'g', family: 'Épicerie', subfamily: 'Épices', allergens: [] },
+      { id: 19, name: 'Galettes de riz 22CM (lot de 35)', price: 3.90, unit: 'lot', family: 'Épicerie', subfamily: 'Sec', allergens: [] }
+    ];
+
+    let modified = false;
+    defaultSimuIngredients.forEach(item => {
+      const exists = mercuriale.some(ing => ing.name.toLowerCase().trim() === item.name.toLowerCase().trim());
+      if (!exists) {
+        const idConflict = mercuriale.some(ing => ing.id === item.id);
+        const newId = idConflict ? (mercuriale.length > 0 ? Math.max(...mercuriale.map(i => i.id)) + 1 : item.id) : item.id;
+        mercuriale.push({ ...item, id: newId });
+        modified = true;
+      }
+    });
+
+    const nemRecipeName = 'Nems Kim Chi Pho (100 portions)';
+    const recipeExists = recipes.some(r => r.name.toLowerCase().trim() === nemRecipeName.toLowerCase().trim());
+    if (!recipeExists) {
+      const getIdByName = (name, fallbackId) => {
+        const found = mercuriale.find(ing => ing.name.toLowerCase().trim() === name.toLowerCase().trim());
+        return found ? found.id : fallbackId;
+      };
+
+      const newRecipe = {
+        id: recipes.length > 0 ? Math.max(...recipes.map(r => r.id)) + 1 : 4,
+        name: nemRecipeName,
+        servings: 100,
+        multiplier: 3.2,
+        productionTime: 120,
+        steps: "Préparer la farce en mélangeant tous les ingrédients hachés, hydrater les champignons noirs et les vermicelles de soja avant de les incorporer, assaisonner avec la sauce huîtres, l'huile de sésame, le sel, le sucre et le poivre blanc, rouler dans les galettes de riz réhydratées, puis frire en deux bains.",
+        ingredients: [
+          { ingredientId: getIdByName('Poitrine de porc', 12), quantity: 2500 },
+          { ingredientId: getIdByName('Carotte', 13), quantity: 1250 },
+          { ingredientId: getIdByName('Oignon', 8), quantity: 1250 },
+          { ingredientId: getIdByName('Vermicelles de soja', 14), quantity: 500 },
+          { ingredientId: getIdByName('Champignons noirs', 15), quantity: 200 },
+          { ingredientId: getIdByName('Oeuf', 2), quantity: 10 },
+          { ingredientId: getIdByName('Sel fin', 10), quantity: 15 },
+          { ingredientId: getIdByName('Sucre', 3), quantity: 33 },
+          { ingredientId: getIdByName('Sauce huîtres PANDA', 16), quantity: 0.135 },
+          { ingredientId: getIdByName('Huile de sésame', 17), quantity: 0.035 },
+          { ingredientId: getIdByName('Poivre blanc moulu', 18), quantity: 8 },
+          { ingredientId: getIdByName('Galettes de riz 22CM (lot de 35)', 19), quantity: 3 }
+        ]
+      };
+      recipes.push(newRecipe);
+      modified = true;
+    }
+
+    localStorage.setItem('nems-recipe-injected', 'true');
+    if (modified) {
+      saveData(recipes, mercuriale);
+    }
+  }
 }
 
 function isDataLoaded() {
@@ -292,10 +410,10 @@ export {
   EU_ALLERGENS,
   // Configuration
   VAT_RATE,
-  DEFAULT_HOURLY_RATE,
-  LABOR_COST_MULTIPLIER,
-  OVERHEAD_PERCENTAGE,
+  CHARGED_HOURLY_RATE,
+  OVERHEAD_RATE,
   TARGET_NET_MARGIN,
+  updateGlobalSettings,
   // Fonctions de base
   getIngredientById,
   calculateRecipeCost,
@@ -307,6 +425,7 @@ export {
   calculateLaborCostPerServing,
   calculateOverheadCost,
   calculateTotalCostPerServing,
+  calculateActualPriceHTPerServing,
   calculateNetMargin,
   calculateHourlyProfitability,
   calculateSuggestedPrice,

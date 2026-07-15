@@ -73,6 +73,34 @@
                 </div>
             </div>
 
+            <!-- Paramètres de Simulation Globaux -->
+            <div class="card">
+                <h3><span class="icon">⚙️</span> Paramètres Globaux</h3>
+                <form id="global-settings-form">
+                    <div style="display: flex; flex-direction: column; gap: 0.85rem; margin-top: 0.5rem;">
+                        <div class="form-group">
+                            <label for="settings-hourly-rate">Coût horaire chargé (€/h)</label>
+                            <input type="number" id="settings-hourly-rate" step="0.1" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="settings-overhead">Frais généraux (%)</label>
+                            <input type="number" id="settings-overhead" step="1" min="0" max="100" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="settings-target-margin">Marge nette cible (%)</label>
+                            <input type="number" id="settings-target-margin" step="1" min="0" max="100" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="settings-vat">Taux de TVA (%)</label>
+                            <input type="number" id="settings-vat" step="0.1" min="0" max="100" required>
+                        </div>
+                        <button type="submit" class="button-primary" style="width: 100%; margin-top: 0.5rem;">
+                            Enregistrer & Recalculer
+                        </button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Gestion des données -->
             <div class="card">
                 <h3>Gestion des Données</h3>

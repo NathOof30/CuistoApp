@@ -1,11 +1,13 @@
-import { mercuriale, recipes, calculateRecipeCost, getIngredientById } from '../data.js';
+import { mercuriale, recipes, calculateRecipeCost, calculateNetMargin, calculateActualPriceHTPerServing, getIngredientById, updateGlobalSettings, VAT_RATE, CHARGED_HOURLY_RATE, OVERHEAD_RATE, TARGET_NET_MARGIN } from '../data.js';
 import { formatCurrency, escapeHTML, formatPercent } from './common.js';
+import { showToast } from './ui-feedback.js';
 
 // Utiliser les exports directement pour éviter l'état obsolète
 
 export function initDashboard() {
     displayStats();
     displayNotifications();
+    initSettingsForm();
     
     const addDenreeBtn = document.querySelector('a.action-button[href="mercuriale.html?action=add"]');
     if (addDenreeBtn) {
@@ -28,6 +30,51 @@ export function initDashboard() {
     }
 }
 
+function initSettingsForm() {
+    const form = document.getElementById('global-settings-form');
+    if (!form) return;
+
+    const hourlyRateInput = document.getElementById('settings-hourly-rate');
+    const overheadInput = document.getElementById('settings-overhead');
+    const targetMarginInput = document.getElementById('settings-target-margin');
+    const vatInput = document.getElementById('settings-vat');
+
+    // Pré-remplir avec les valeurs courantes (on multiplie les taux par 100 pour l'affichage en %)
+    if (hourlyRateInput) hourlyRateInput.value = CHARGED_HOURLY_RATE.toFixed(2);
+    if (overheadInput) overheadInput.value = Math.round(OVERHEAD_RATE * 100);
+    if (targetMarginInput) targetMarginInput.value = Math.round(TARGET_NET_MARGIN * 100);
+    if (vatInput) vatInput.value = (VAT_RATE * 100).toFixed(1);
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const hr = parseFloat(hourlyRateInput.value);
+        const oh = parseFloat(overheadInput.value);
+        const margin = parseFloat(targetMarginInput.value);
+        const vat = parseFloat(vatInput.value);
+
+        if (isNaN(hr) || hr < 0 || isNaN(oh) || oh < 0 || oh > 100 || isNaN(margin) || margin < 0 || margin > 100 || isNaN(vat) || vat < 0 || vat > 100) {
+            showToast('Veuillez saisir des valeurs valides.', 'error');
+            return;
+        }
+
+        // Sauvegarder dans localStorage
+        localStorage.setItem('settings-charged-hourly-rate', hr.toString());
+        localStorage.setItem('settings-overhead-rate', oh.toString());
+        localStorage.setItem('settings-target-net-margin', margin.toString());
+        localStorage.setItem('settings-vat-rate', vat.toString());
+
+        // Mettre à jour les live bindings de data.js
+        updateGlobalSettings();
+
+        // Rafraîchir l'affichage du dashboard
+        displayStats();
+        displayNotifications();
+
+        showToast('Paramètres de simulation enregistrés et appliqués !', 'success', 2000);
+    });
+}
+
 function displayStats() {
     document.getElementById('total-recipes').textContent = recipes.length;
     document.getElementById('total-ingredients').textContent = mercuriale.length;
@@ -39,16 +86,14 @@ function displayStats() {
     let bestRecipeMargin = -1;
 
     recipes.forEach(recipe => {
-        const totalCost = calculateRecipeCost(recipe);
-        const costPerServing = recipe.servings > 0 ? totalCost / recipe.servings : 0;
-        const salePriceHT = costPerServing * (recipe.multiplier || 0);
-        if (salePriceHT > 0) {
-            const grossMargin = ((salePriceHT - costPerServing) / salePriceHT) * 100;
-            sumMargins += grossMargin;
+        const netMargin = calculateNetMargin(recipe);
+        const actualPVHT = calculateActualPriceHTPerServing(recipe);
+        if (actualPVHT > 0) {
+            sumMargins += netMargin;
             countMargins++;
 
-            if (grossMargin > bestRecipeMargin) {
-                bestRecipeMargin = grossMargin;
+            if (netMargin > bestRecipeMargin) {
+                bestRecipeMargin = netMargin;
                 bestRecipeName = recipe.name;
             }
         }
