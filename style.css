@@ -2197,6 +2197,8 @@ body.dark-mode .global-total-banner {
         gap: 0.5rem;
         text-align: center;
     }
+}
+
 /* --- Styles des Cartes de Formulaire de Recette (UI/UX Moderne & Aérée) --- */
 .recipe-panel-card {
     background: var(--card-background);
@@ -2280,4 +2282,32 @@ body.dark-mode .global-total-banner {
         size: A4 portrait;
         margin: 10mm;
     }
+}
+
+/* Badges de Rendement / Pertes au parage & Sous-recettes */
+.yield-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: var(--text-color);
+}
+
+.yield-badge.yield-warning {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.subrecipe-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #e0e7ff;
+    color: #3730a3;
+    margin-right: 0.35rem;
 }

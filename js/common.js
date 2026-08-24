@@ -90,3 +90,66 @@ export function formatQuantityInput(value, unit) {
     return formatQuantityPlain(value, unit);
 }
 
+// === MOTEUR DE CONVERSION D'UNITÉS CULINAIRES ===
+const UNIT_FACTORS = {
+    // Masse (unité de base: g)
+    'g': 1,
+    'gramme': 1,
+    'grammes': 1,
+    'kg': 1000,
+    'kilo': 1000,
+    'kilogramme': 1000,
+    'kilogrammes': 1000,
+    'mg': 0.001,
+
+    // Volume (unité de base: ml)
+    'ml': 1,
+    'millilitre': 1,
+    'millilitres': 1,
+    'cl': 10,
+    'centilitre': 10,
+    'centilitres': 10,
+    'dl': 100,
+    'décilitre': 100,
+    'décilitres': 100,
+    'l': 1000,
+    'litre': 1000,
+    'litres': 1000
+};
+
+/**
+ * Convertit une quantité depuis l'unité d'utilisation vers l'unité d'achat.
+ * Exemple: convertUnitQuantity(250, 'g', 'kg') => 0.25 (car 250 g = 0.25 kg)
+ */
+export function convertUnitQuantity(qty, fromUnit, toUnit) {
+    const numQty = typeof qty === 'number' && Number.isFinite(qty) ? qty : parseFloat(qty) || 0;
+    const fromNorm = normalizeUnit(fromUnit);
+    const toNorm = normalizeUnit(toUnit);
+
+    if (fromNorm === toNorm || !fromNorm || !toNorm) return numQty;
+
+    const fromFactor = UNIT_FACTORS[fromNorm];
+    const toFactor = UNIT_FACTORS[toNorm];
+
+    if (fromFactor && toFactor) {
+        const baseQty = numQty * fromFactor;
+        return baseQty / toFactor;
+    }
+
+    return numQty;
+}
+
+/**
+ * Retourne la liste des unités d'utilisation compatibles avec une unité d'achat.
+ */
+export function getCompatibleUnits(unit) {
+    const norm = normalizeUnit(unit);
+    if (['g', 'kg', 'mg', 'gramme', 'kilo', 'kilogramme'].includes(norm)) {
+        return ['g', 'kg'];
+    }
+    if (['l', 'cl', 'ml', 'dl', 'litre', 'centilitre', 'millilitre'].includes(norm)) {
+        return ['cl', 'ml', 'L'];
+    }
+    return [unit || 'pièce'];
+}
+

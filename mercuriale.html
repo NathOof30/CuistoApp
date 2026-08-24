@@ -42,6 +42,7 @@
                         <th class="sortable" data-sort="name">Intitulé <span class="sort-icon">↕</span></th>
                         <th class="sortable" data-sort="unit">Unité <span class="sort-icon">↕</span></th>
                         <th class="sortable" data-sort="price">Prix HT / unité <span class="sort-icon">↕</span></th>
+                        <th class="sortable" data-sort="yield">Rendement % <span class="sort-icon">↕</span></th>
                         <th class="sortable" data-sort="family">Famille <span class="sort-icon">↕</span></th>
                         <th class="sortable" data-sort="subfamily">Sous-famille <span class="sort-icon">↕</span></th>
                         <th>Allergènes</th>
@@ -74,6 +75,11 @@
                         <label for="ingredient-price">Prix HT / unité</label>
                         <input type="number" id="ingredient-price" step="0.001" min="0"
                             placeholder="Laissez vide si non connu">
+                    </div>
+                    <div class="form-group">
+                        <label for="ingredient-yield">Rendement utile (%)</label>
+                        <input type="number" id="ingredient-yield" step="1" min="1" max="100" value="100"
+                            placeholder="100% (ex: 80% si 20% pertes)">
                     </div>
                     <div class="form-group">
                         <label for="ingredient-family-select">Famille</label>

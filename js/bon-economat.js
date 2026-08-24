@@ -1,5 +1,5 @@
 import { mercuriale, recipes, VAT_RATE, getIngredientById, calculateRecipeCost, saveData } from '../data.js';
-import { formatCurrency, formatCurrency3, formatQuantity, formatQuantityPlain, escapeHTML } from './common.js';
+import { formatCurrency, formatCurrency3, formatQuantity, formatQuantityPlain, escapeHTML, convertUnitQuantity } from './common.js';
 import { showToast } from './ui-feedback.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
@@ -82,6 +82,60 @@ function getSelectionsFromUI() {
     return selections;
 }
 
+function processRecipeItems(items, portionMultiplier, recipeDetails, summary, visited = new Set()) {
+    items.forEach(item => {
+        if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
+            const subId = parseInt(item.subRecipeId || item.ingredientId);
+            if (visited.has(subId)) return;
+            const newVisited = new Set(visited);
+            newVisited.add(subId);
+
+            const subRecipe = recipes.find(r => r.id === subId);
+            if (subRecipe && subRecipe.servings) {
+                const subPortionMultiplier = (item.quantity * portionMultiplier) / subRecipe.servings;
+                processRecipeItems(subRecipe.ingredients || [], subPortionMultiplier, recipeDetails, summary, newVisited);
+            }
+        } else if (item.ingredientId) {
+            const ingredient = getIngredientById(item.ingredientId);
+            if (!ingredient) return;
+
+            const ingUnit = ingredient.unit;
+            const recipeUnit = item.unit || ingUnit;
+
+            const requiredInRecipeUnit = item.quantity * portionMultiplier;
+            const requiredInBaseUnit = convertUnitQuantity(requiredInRecipeUnit, recipeUnit, ingUnit);
+
+            const yieldPct = (typeof ingredient.yield === 'number' && ingredient.yield > 0) ? ingredient.yield : 100;
+            const effectivePrice = (ingredient.price || 0) / (yieldPct / 100);
+            const cost = effectivePrice * requiredInBaseUnit;
+
+            recipeDetails.ingredients.push({
+                name: ingredient.name,
+                quantity: requiredInBaseUnit,
+                unit: ingUnit,
+                unitPrice: effectivePrice,
+                totalCost: cost
+            });
+            recipeDetails.totalCost += cost;
+
+            if (summary.has(ingredient.id)) {
+                const existing = summary.get(ingredient.id);
+                existing.quantity += requiredInBaseUnit;
+                existing.totalCost += cost;
+            } else {
+                summary.set(ingredient.id, {
+                    id: ingredient.id,
+                    name: ingredient.name,
+                    quantity: requiredInBaseUnit,
+                    unit: ingUnit,
+                    totalCost: cost,
+                    family: ingredient.family
+                });
+            }
+        }
+    });
+}
+
 function calculateBonData(selections) {
     const detailed = [];
     const summary = new Map();
@@ -100,38 +154,7 @@ function calculateBonData(selections) {
             totalCost: 0
         };
 
-        recipe.ingredients.forEach(item => {
-            const ingredient = getIngredientById(item.ingredientId);
-            if (!ingredient) return;
-
-            const requiredQuantity = item.quantity * portionMultiplier;
-            const cost = (ingredient.price || 0) * requiredQuantity;
-
-            recipeDetails.ingredients.push({
-                name: ingredient.name,
-                quantity: requiredQuantity,
-                unit: ingredient.unit,
-                unitPrice: ingredient.price || 0,
-                totalCost: cost
-            });
-            recipeDetails.totalCost += cost;
-
-            // Update summary
-            if (summary.has(ingredient.id)) {
-                const existing = summary.get(ingredient.id);
-                existing.quantity += requiredQuantity;
-                existing.totalCost += cost;
-            } else {
-                summary.set(ingredient.id, {
-                    id: ingredient.id,
-                    name: ingredient.name,
-                    quantity: requiredQuantity,
-                    unit: ingredient.unit,
-                    totalCost: cost,
-                    family: ingredient.family
-                });
-            }
-        });
+        processRecipeItems(recipe.ingredients || [], portionMultiplier, recipeDetails, summary);
 
         // Calcul du prix de vente pour cette recette
         const recipeTotalCost = calculateRecipeCost(recipe);

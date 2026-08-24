@@ -7,7 +7,7 @@ import {
     calculateNetMargin, calculateHourlyProfitability, calculateSuggestedPrice,
     getRecipeAllergens, getRecipeAllergenDetails, nextRecipeId
 } from '../data.js';
-import { formatCurrency, formatCurrency3, formatPercent, formatDuration, escapeHTML, formatQuantityInput } from './common.js';
+import { formatCurrency, formatCurrency3, formatPercent, formatDuration, escapeHTML, formatQuantityInput, convertUnitQuantity, getCompatibleUnits } from './common.js';
 import { showToast, showConfirm } from './ui-feedback.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
@@ -329,14 +329,34 @@ function addIngredientRow(ingredientItem = null) {
     const row = document.createElement('div');
     row.className = 'ingredient-row';
 
+    const currentEditingRecipeId = parseInt(document.getElementById('recipe-id')?.value) || null;
+
     const select = document.createElement('select');
     select.className = 'ingredient-select';
-    select.innerHTML = `<option value="">Choisir un ingrédient...</option>` +
-        [...mercuriale].sort((a, b) => a.name.localeCompare(b.name)).map(ing => {
-            const hasAllergens = ing.allergens && ing.allergens.length > 0;
-            const allergenIcon = hasAllergens ? ' ⚠️' : '';
-            return `<option value="${ing.id}">${escapeHTML(ing.name)} (${escapeHTML(ing.unit)})${allergenIcon}</option>`;
+
+    let optionsHtml = `<option value="">Choisir un composant...</option>`;
+
+    // Option group 1: Mercuriale ingredients
+    const ingredientsOptions = [...mercuriale].sort((a, b) => a.name.localeCompare(b.name)).map(ing => {
+        const hasAllergens = ing.allergens && ing.allergens.length > 0;
+        const allergenIcon = hasAllergens ? ' ⚠️' : '';
+        return `<option value="ing_${ing.id}" data-type="ingredient" data-id="${ing.id}">${escapeHTML(ing.name)} (${escapeHTML(ing.unit)})${allergenIcon}</option>`;
+    }).join('');
+    optionsHtml += `<optgroup label="📦 Denrées (Mercuriale)">${ingredientsOptions}</optgroup>`;
+
+    // Option group 2: Sub-recipes (exclude current recipe being edited to prevent self-nesting)
+    const subRecipesOptions = [...recipes]
+        .filter(r => !currentEditingRecipeId || r.id !== currentEditingRecipeId)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(r => {
+            return `<option value="sub_${r.id}" data-type="subrecipe" data-id="${r.id}">👩‍🍳 ${escapeHTML(r.name)} (${r.servings || 1} portion${(r.servings || 1) > 1 ? 's' : ''})</option>`;
         }).join('');
+
+    if (subRecipesOptions) {
+        optionsHtml += `<optgroup label="👩‍🍳 Sous-Recettes (Fiches techniques)">${subRecipesOptions}</optgroup>`;
+    }
+
+    select.innerHTML = optionsHtml;
 
     const quantityInput = document.createElement('input');
     quantityInput.type = 'number';
@@ -345,8 +365,9 @@ function addIngredientRow(ingredientItem = null) {
     quantityInput.step = '0.001';
     quantityInput.min = '0';
 
-    const unitLabel = document.createElement('span');
-    unitLabel.className = 'ingredient-unit';
+    const unitSelect = document.createElement('select');
+    unitSelect.className = 'ingredient-unit-select';
+    unitSelect.style.minWidth = '80px';
 
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
@@ -357,24 +378,62 @@ function addIngredientRow(ingredientItem = null) {
         updateCostSummary();
     };
 
-    if (ingredientItem) {
-        select.value = ingredientItem.ingredientId;
-        // Afficher les quantités avec 3 décimales
-        const unit = getIngredientById(ingredientItem.ingredientId)?.unit || '';
-        quantityInput.value = formatQuantityInput(ingredientItem.quantity, unit);
-        const selectedIng = getIngredientById(ingredientItem.ingredientId);
-        if (selectedIng) unitLabel.textContent = selectedIng.unit;
+    function updateUnitOptions() {
+        const selectedOpt = select.options[select.selectedIndex];
+        if (!selectedOpt || !selectedOpt.value) {
+            unitSelect.innerHTML = `<option value="">-</option>`;
+            return;
+        }
+
+        const type = selectedOpt.dataset.type;
+        const id = parseInt(selectedOpt.dataset.id);
+
+        if (type === 'subrecipe') {
+            unitSelect.innerHTML = `<option value="portion">portion(s)</option>`;
+            quantityInput.placeholder = 'Portions';
+        } else {
+            const ing = getIngredientById(id);
+            if (ing) {
+                const compatUnits = getCompatibleUnits(ing.unit);
+                unitSelect.innerHTML = compatUnits.map(u => `<option value="${u}">${u}</option>`).join('');
+                quantityInput.placeholder = 'Qté';
+            }
+        }
     }
 
     select.addEventListener('change', () => {
-        const selectedIng = getIngredientById(parseInt(select.value));
-        unitLabel.textContent = selectedIng ? selectedIng.unit : '';
+        updateUnitOptions();
         updateCostSummary();
     });
 
+    unitSelect.addEventListener('change', () => {
+        updateCostSummary();
+    });
+
+    quantityInput.addEventListener('input', () => {
+        updateCostSummary();
+    });
+
+    if (ingredientItem) {
+        if (ingredientItem.isSubRecipe || ingredientItem.type === 'subrecipe' || ingredientItem.subRecipeId) {
+            const subId = ingredientItem.subRecipeId || ingredientItem.ingredientId;
+            select.value = `sub_${subId}`;
+            updateUnitOptions();
+            unitSelect.value = ingredientItem.unit || 'portion';
+            quantityInput.value = ingredientItem.quantity ?? '';
+        } else if (ingredientItem.ingredientId) {
+            select.value = `ing_${ingredientItem.ingredientId}`;
+            updateUnitOptions();
+            const ing = getIngredientById(ingredientItem.ingredientId);
+            const unit = ingredientItem.unit || ing?.unit || '';
+            unitSelect.value = unit;
+            quantityInput.value = formatQuantityInput(ingredientItem.quantity, unit);
+        }
+    }
+
     row.appendChild(select);
     row.appendChild(quantityInput);
-    row.appendChild(unitLabel);
+    row.appendChild(unitSelect);
     row.appendChild(deleteBtn);
     list.appendChild(row);
 }
@@ -385,22 +444,60 @@ function updateCostSummary() {
     const servings = parseFloat(form.querySelector('#recipe-servings').value) || 0;
     const multiplier = parseFloat(form.querySelector('#recipe-multiplier').value) || 0;
     const productionTime = parseFloat(form.querySelector('#recipe-production-time')?.value) || 0;
+    const currentRecipeId = parseInt(form.querySelector('#recipe-id')?.value) || null;
 
     let totalCost = 0;
     const allergenSet = new Set();
+    const currentIngredients = [];
 
     form.querySelectorAll('.ingredient-row').forEach(row => {
-        const ingId = parseInt(row.querySelector('.ingredient-select').value);
+        const select = row.querySelector('.ingredient-select');
+        const selectedOpt = select.options[select.selectedIndex];
         const quantity = parseFloat(row.querySelector('.ingredient-quantity').value);
-        if (ingId && quantity > 0) {
-            const ingredient = getIngredientById(ingId);
-            if (ingredient) {
-                if (typeof ingredient.price === 'number' && Number.isFinite(ingredient.price)) {
-                    totalCost += ingredient.price * quantity;
+        const unit = row.querySelector('.ingredient-unit-select')?.value;
+
+        if (selectedOpt && selectedOpt.value && !isNaN(quantity) && quantity > 0) {
+            const type = selectedOpt.dataset.type;
+            const id = parseInt(selectedOpt.dataset.id);
+
+            if (type === 'subrecipe') {
+                const subRecipe = recipes.find(r => r.id === id);
+                if (subRecipe) {
+                    const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
+                    const subCostPerServing = calculateRecipeCost(subRecipe) / subServings;
+                    totalCost += subCostPerServing * quantity;
+
+                    currentIngredients.push({
+                        isSubRecipe: true,
+                        subRecipeId: id,
+                        quantity,
+                        unit: 'portion'
+                    });
+
+                    const subAllergens = getRecipeAllergens(subRecipe);
+                    subAllergens.forEach(a => allergenSet.add(a));
                 }
-                // Collecter les allergènes
-                if (Array.isArray(ingredient.allergens)) {
-                    ingredient.allergens.forEach(a => allergenSet.add(a));
+            } else {
+                const ingredient = getIngredientById(id);
+                if (ingredient) {
+                    if (typeof ingredient.price === 'number' && Number.isFinite(ingredient.price)) {
+                        const recipeUnit = unit || ingredient.unit;
+                        const convertedQty = convertUnitQuantity(quantity, recipeUnit, ingredient.unit);
+                        const yieldPct = (typeof ingredient.yield === 'number' && ingredient.yield > 0) ? ingredient.yield : 100;
+                        const effectiveUnitPrice = ingredient.price / (yieldPct / 100);
+
+                        totalCost += effectiveUnitPrice * convertedQty;
+                    }
+
+                    currentIngredients.push({
+                        ingredientId: id,
+                        quantity,
+                        unit: unit || ingredient.unit
+                    });
+
+                    if (Array.isArray(ingredient.allergens)) {
+                        ingredient.allergens.forEach(a => allergenSet.add(a));
+                    }
                 }
             }
         }
@@ -410,20 +507,14 @@ function updateCostSummary() {
     const salePriceHT = costPerServing * multiplier;
     const salePriceTTC = salePriceHT * (1 + VAT_RATE);
 
-    // Création d'un objet recette temporaire pour les calculs
+    // Création d'un objet recette temporaire pour les calculs de rentabilité
     const tempRecipe = {
+        id: currentRecipeId,
         servings,
         multiplier,
         productionTime,
-        ingredients: []
+        ingredients: currentIngredients
     };
-    form.querySelectorAll('.ingredient-row').forEach(row => {
-        const ingredientId = parseInt(row.querySelector('.ingredient-select').value);
-        const quantity = parseFloat(row.querySelector('.ingredient-quantity').value);
-        if (ingredientId && quantity > 0) {
-            tempRecipe.ingredients.push({ ingredientId, quantity });
-        }
-    });
 
     // Calculs de rentabilité (Prime Cost)
     const laborCostPerServing = calculateLaborCostPerServing(tempRecipe);
@@ -535,10 +626,29 @@ function handleFormSubmit(e) {
     };
 
     form.querySelectorAll('.ingredient-row').forEach(row => {
-        const ingredientId = parseInt(row.querySelector('.ingredient-select').value);
+        const select = row.querySelector('.ingredient-select');
+        const selectedOpt = select.options[select.selectedIndex];
         const quantity = parseFloat(row.querySelector('.ingredient-quantity').value);
-        if (ingredientId && quantity > 0) {
-            recipeData.ingredients.push({ ingredientId, quantity });
+        const unit = row.querySelector('.ingredient-unit-select')?.value;
+
+        if (selectedOpt && selectedOpt.value && !isNaN(quantity) && quantity > 0) {
+            const type = selectedOpt.dataset.type;
+            const id = parseInt(selectedOpt.dataset.id);
+
+            if (type === 'subrecipe') {
+                recipeData.ingredients.push({
+                    isSubRecipe: true,
+                    subRecipeId: id,
+                    quantity,
+                    unit: 'portion'
+                });
+            } else {
+                recipeData.ingredients.push({
+                    ingredientId: id,
+                    quantity,
+                    unit: unit || getIngredientById(id)?.unit || ''
+                });
+            }
         }
     });
 
@@ -623,30 +733,59 @@ export function showRecipeDetails(recipeId) {
           `).join('')
         : '<span class="allergen-pill allergen-pill-none">✓ Aucun allergène détecté</span>';
 
-    // Ingrédients table rows
+    // Ingrédients & Sous-recettes table rows
     let ingredientsRowsHtml = '';
     if (!recipe.ingredients || recipe.ingredients.length === 0) {
         ingredientsRowsHtml = `<tr><td colspan="5" class="text-center text-muted" style="padding:2rem;">Aucun ingrédient dans cette recette.</td></tr>`;
     } else {
         recipe.ingredients.forEach(item => {
-            const ing = getIngredientById(item.ingredientId);
-            if (ing) {
-                const ingPrice = ing.price || 0;
-                const cost = ingPrice * item.quantity;
-                const hasAllergens = ing.allergens && ing.allergens.length > 0;
-                const allergenBadge = hasAllergens
-                    ? `<span style="color:#ef4444;" title="${escapeHTML(ing.allergens.join(', '))}">⚠️ ${escapeHTML(ing.allergens.join(', '))}</span>`
-                    : '<span style="color:#94a3b8;">—</span>';
+            if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
+                const subId = parseInt(item.subRecipeId || item.ingredientId);
+                const subRecipe = recipes.find(r => r.id === subId);
+                if (subRecipe) {
+                    const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
+                    const subCostPerServing = calculateRecipeCost(subRecipe) / subServings;
+                    const totalSubCost = subCostPerServing * item.quantity;
+                    const subAllergens = getRecipeAllergenDetails(subRecipe);
+                    const allergenBadge = subAllergens.length > 0
+                        ? `<span style="color:#ef4444;" title="${escapeHTML(subAllergens.map(a=>a.name).join(', '))}">⚠️ ${escapeHTML(subAllergens.map(a=>a.name).join(', '))}</span>`
+                        : '<span style="color:#94a3b8;">—</span>';
 
-                ingredientsRowsHtml += `
-                    <tr>
-                        <td style="font-weight: 600;">${escapeHTML(ing.name)}</td>
-                        <td class="text-center font-mono">${formatQuantityInput(item.quantity, ing.unit)} ${escapeHTML(ing.unit)}</td>
-                        <td class="text-right font-mono">${formatCurrency3(ingPrice)} / ${escapeHTML(ing.unit)}</td>
-                        <td class="text-right font-mono" style="font-weight: 700;">${formatCurrency3(cost)}</td>
-                        <td class="text-center font-mono">${allergenBadge}</td>
-                    </tr>
-                `;
+                    ingredientsRowsHtml += `
+                        <tr>
+                            <td style="font-weight: 600;"><span class="subrecipe-badge">👩‍🍳 Sous-recette</span> ${escapeHTML(subRecipe.name)}</td>
+                            <td class="text-center font-mono">${formatQuantityInput(item.quantity, 'portion')} portion(s)</td>
+                            <td class="text-right font-mono">${formatCurrency3(subCostPerServing)} / portion</td>
+                            <td class="text-right font-mono" style="font-weight: 700;">${formatCurrency3(totalSubCost)}</td>
+                            <td class="text-center font-mono">${allergenBadge}</td>
+                        </tr>
+                    `;
+                }
+            } else {
+                const ing = getIngredientById(item.ingredientId);
+                if (ing) {
+                    const ingUnit = ing.unit;
+                    const recipeUnit = item.unit || ingUnit;
+                    const convertedQty = convertUnitQuantity(item.quantity, recipeUnit, ingUnit);
+                    const yieldPct = (typeof ing.yield === 'number' && ing.yield > 0) ? ing.yield : 100;
+                    const effectiveUnitPrice = (ing.price || 0) / (yieldPct / 100);
+                    const cost = effectiveUnitPrice * convertedQty;
+
+                    const hasAllergens = ing.allergens && ing.allergens.length > 0;
+                    const allergenBadge = hasAllergens
+                        ? `<span style="color:#ef4444;" title="${escapeHTML(ing.allergens.join(', '))}">⚠️ ${escapeHTML(ing.allergens.join(', '))}</span>`
+                        : '<span style="color:#94a3b8;">—</span>';
+
+                    ingredientsRowsHtml += `
+                        <tr>
+                            <td style="font-weight: 600;">${escapeHTML(ing.name)}</td>
+                            <td class="text-center font-mono">${formatQuantityInput(item.quantity, recipeUnit)} ${escapeHTML(recipeUnit)}</td>
+                            <td class="text-right font-mono">${formatCurrency3(effectiveUnitPrice)} / ${escapeHTML(ingUnit)}${yieldPct < 100 ? ` <small class="text-muted">(${yieldPct}%)</small>` : ''}</td>
+                            <td class="text-right font-mono" style="font-weight: 700;">${formatCurrency3(cost)}</td>
+                            <td class="text-center font-mono">${allergenBadge}</td>
+                        </tr>
+                    `;
+                }
             }
         });
     }

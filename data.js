@@ -1,3 +1,5 @@
+import { convertUnitQuantity } from './js/common.js';
+
 // === CONFIGURATION RENTABILITÉ GLOBALE (Modifiable par l'utilisateur) ===
 let VAT_RATE = 0.10;
 let CHARGED_HOURLY_RATE = 22.00;
@@ -40,26 +42,26 @@ const EU_ALLERGENS = [
 ];
 
 let mercuriale = [
-  { id: 1, name: 'Farine T55', price: 0.0012, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: ['gluten'] },
-  { id: 2, name: 'Oeuf', price: 0.25, unit: 'pièce', family: 'Crèmerie', subfamily: '', allergens: ['eggs'] },
-  { id: 3, name: 'Sucre', price: 0.0015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
-  { id: 4, name: 'Beurre', price: 0.008, unit: 'g', family: 'Crèmerie', subfamily: '', allergens: ['milk'] },
-  { id: 5, name: 'Chocolat noir 70%', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Pâtisserie', allergens: ['milk', 'soybeans'] },
-  { id: 6, name: 'Lait entier', price: 1.10, unit: 'L', family: 'Crèmerie', subfamily: '', allergens: ['milk'] },
-  { id: 7, name: 'Tomate', price: 0.0025, unit: 'g', family: 'Légumerie', subfamily: 'Légumes fruits', allergens: [] },
-  { id: 8, name: 'Oignon', price: 0.0013, unit: 'g', family: 'Légumerie', subfamily: 'Légumes racines', allergens: [] },
-  { id: 9, name: 'Huile d\'olive', price: 9.50, unit: 'L', family: 'Épicerie', subfamily: 'Huiles et vinaigres', allergens: [] },
-  { id: 10, name: 'Sel fin', price: null, unit: 'g', family: 'Épicerie', subfamily: 'Condiments', allergens: [] },
-  { id: 11, name: 'Ail', price: 0.005, unit: 'g', family: 'Légumerie', subfamily: 'Condiments', allergens: [] },
+  { id: 1, name: 'Farine T55', price: 0.0012, unit: 'g', family: 'Épicerie', subfamily: 'Sec', yield: 100, allergens: ['gluten'] },
+  { id: 2, name: 'Oeuf', price: 0.25, unit: 'pièce', family: 'Crèmerie', subfamily: '', yield: 100, allergens: ['eggs'] },
+  { id: 3, name: 'Sucre', price: 0.0015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', yield: 100, allergens: [] },
+  { id: 4, name: 'Beurre', price: 0.008, unit: 'g', family: 'Crèmerie', subfamily: '', yield: 100, allergens: ['milk'] },
+  { id: 5, name: 'Chocolat noir 70%', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Pâtisserie', yield: 100, allergens: ['milk', 'soybeans'] },
+  { id: 6, name: 'Lait entier', price: 1.10, unit: 'L', family: 'Crèmerie', subfamily: '', yield: 100, allergens: ['milk'] },
+  { id: 7, name: 'Tomate', price: 0.0025, unit: 'g', family: 'Légumerie', subfamily: 'Légumes fruits', yield: 90, allergens: [] },
+  { id: 8, name: 'Oignon', price: 0.0013, unit: 'g', family: 'Légumerie', subfamily: 'Légumes racines', yield: 85, allergens: [] },
+  { id: 9, name: 'Huile d\'olive', price: 9.50, unit: 'L', family: 'Épicerie', subfamily: 'Huiles et vinaigres', yield: 100, allergens: [] },
+  { id: 10, name: 'Sel fin', price: null, unit: 'g', family: 'Épicerie', subfamily: 'Condiments', yield: 100, allergens: [] },
+  { id: 11, name: 'Ail', price: 0.005, unit: 'g', family: 'Légumerie', subfamily: 'Condiments', yield: 80, allergens: [] },
   // Denrées de simulation
-  { id: 12, name: 'Poitrine de porc', price: 0.00655, unit: 'g', family: 'Boucherie', subfamily: 'Porc', allergens: [] },
-  { id: 13, name: 'Carotte', price: 0.002, unit: 'g', family: 'Légumerie', subfamily: 'Légumes', allergens: [] },
-  { id: 14, name: 'Vermicelles de soja', price: 0.0093, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
-  { id: 15, name: 'Champignons noirs', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
-  { id: 16, name: 'Sauce huîtres PANDA', price: 4.80, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['molluscs'] },
-  { id: 17, name: 'Huile de sésame', price: 15.00, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['sesame'] },
-  { id: 18, name: 'Poivre blanc moulu', price: 0.02, unit: 'g', family: 'Épicerie', subfamily: 'Épices', allergens: [] },
-  { id: 19, name: 'Galettes de riz 22CM (lot de 35)', price: 3.90, unit: 'lot', family: 'Épicerie', subfamily: 'Sec', allergens: [] }
+  { id: 12, name: 'Poitrine de porc', price: 0.00655, unit: 'g', family: 'Boucherie', subfamily: 'Porc', yield: 90, allergens: [] },
+  { id: 13, name: 'Carotte', price: 0.002, unit: 'g', family: 'Légumerie', subfamily: 'Légumes', yield: 80, allergens: [] },
+  { id: 14, name: 'Vermicelles de soja', price: 0.0093, unit: 'g', family: 'Épicerie', subfamily: 'Sec', yield: 100, allergens: [] },
+  { id: 15, name: 'Champignons noirs', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', yield: 100, allergens: [] },
+  { id: 16, name: 'Sauce huîtres PANDA', price: 4.80, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', yield: 100, allergens: ['molluscs'] },
+  { id: 17, name: 'Huile de sésame', price: 15.00, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', yield: 100, allergens: ['sesame'] },
+  { id: 18, name: 'Poivre blanc moulu', price: 0.02, unit: 'g', family: 'Épicerie', subfamily: 'Épices', yield: 100, allergens: [] },
+  { id: 19, name: 'Galettes de riz 22CM (lot de 35)', price: 3.90, unit: 'lot', family: 'Épicerie', subfamily: 'Sec', yield: 100, allergens: [] }
 ];
 
 let recipes = [
@@ -133,12 +135,40 @@ function getIngredientById(id) {
   return id ? mercuriale.find(ing => ing.id === parseInt(id)) : undefined;
 }
 
-function calculateRecipeCost(recipe) {
-  if (!recipe || !recipe.ingredients) return 0;
+function calculateRecipeCost(recipe, visitedRecipeIds = new Set()) {
+  if (!recipe || !recipe.ingredients || !Array.isArray(recipe.ingredients)) return 0;
+  
+  // Prévenir les boucles de récursion infinie si des sous-recettes se référencent
+  if (recipe.id && visitedRecipeIds.has(recipe.id)) return 0;
+  const currentVisited = new Set(visitedRecipeIds);
+  if (recipe.id) currentVisited.add(recipe.id);
+
   return recipe.ingredients.reduce((total, item) => {
+    // Cas 1 : C'est une sous-recette imbriquée
+    if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
+      const subId = parseInt(item.subRecipeId || item.ingredientId);
+      const subRecipe = recipes.find(r => r.id === subId);
+      if (subRecipe && item.quantity) {
+        const subRecipeServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
+        const subRecipeCostPerServing = calculateRecipeCost(subRecipe, currentVisited) / subRecipeServings;
+        return total + (subRecipeCostPerServing * parseFloat(item.quantity));
+      }
+      return total;
+    }
+
+    // Cas 2 : C'est un ingrédient de la Mercuriale
     const ingredient = getIngredientById(item.ingredientId);
     if (ingredient && ingredient.price !== null && ingredient.price !== undefined && item.quantity) {
-      return total + (ingredient.price * item.quantity);
+      const qty = parseFloat(item.quantity) || 0;
+      // Conversion d'unités (ex: g vers kg, cl vers L)
+      const recipeUnit = item.unit || ingredient.unit;
+      const convertedQty = convertUnitQuantity(qty, recipeUnit, ingredient.unit);
+
+      // Prise en compte du Rendement au Parage (%)
+      const yieldPct = (typeof ingredient.yield === 'number' && ingredient.yield > 0) ? ingredient.yield : 100;
+      const effectiveUnitPrice = ingredient.price / (yieldPct / 100);
+
+      return total + (effectiveUnitPrice * convertedQty);
     }
     return total;
   }, 0);
@@ -275,13 +305,26 @@ function calculateSuggestedPrice(recipe, targetMargin = TARGET_NET_MARGIN) {
  * @param {Object} recipe - La recette
  * @returns {Array} - Liste des IDs d'allergènes uniques
  */
-function getRecipeAllergens(recipe) {
-  if (!recipe || !recipe.ingredients) return [];
+function getRecipeAllergens(recipe, visitedRecipeIds = new Set()) {
+  if (!recipe || !recipe.ingredients || !Array.isArray(recipe.ingredients)) return [];
+  if (recipe.id && visitedRecipeIds.has(recipe.id)) return [];
+  const currentVisited = new Set(visitedRecipeIds);
+  if (recipe.id) currentVisited.add(recipe.id);
+
   const allergenSet = new Set();
   recipe.ingredients.forEach(item => {
-    const ingredient = getIngredientById(item.ingredientId);
-    if (ingredient && Array.isArray(ingredient.allergens)) {
-      ingredient.allergens.forEach(a => allergenSet.add(a));
+    if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
+      const subId = parseInt(item.subRecipeId || item.ingredientId);
+      const subRecipe = recipes.find(r => r.id === subId);
+      if (subRecipe) {
+        const subAllergens = getRecipeAllergens(subRecipe, currentVisited);
+        subAllergens.forEach(a => allergenSet.add(a));
+      }
+    } else {
+      const ingredient = getIngredientById(item.ingredientId);
+      if (ingredient && Array.isArray(ingredient.allergens)) {
+        ingredient.allergens.forEach(a => allergenSet.add(a));
+      }
     }
   });
   return [...allergenSet];

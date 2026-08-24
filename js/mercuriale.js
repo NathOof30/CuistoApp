@@ -134,7 +134,7 @@ export function renderMercurialeTable() {
     });
 
     if (filteredMercuriale.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="7" class="table-empty">Aucune denrée trouvée.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="8" class="table-empty">Aucune denrée trouvée.</td></tr>`;
         return;
     }
 
@@ -160,11 +160,16 @@ export function renderMercurialeTable() {
         row.dataset.id = ing.id;
         row.style.cursor = 'pointer';
         const allergensDisplay = renderAllergenIcons(ing.allergens);
+        const yieldVal = typeof ing.yield === 'number' ? ing.yield : 100;
+        const yieldBadge = yieldVal < 100 
+            ? `<span class="yield-badge yield-warning" title="Perte au parage: ${100 - yieldVal}%">${yieldVal}%</span>`
+            : `<span class="yield-badge">${yieldVal}%</span>`;
 
         row.innerHTML = `
             <td data-label="Intitulé">${escapeHTML(ing.name)}</td>
             <td data-label="Unité">${escapeHTML(ing.unit)}</td>
             <td data-label="Prix HT / unité" class="text-right font-mono">${ing.price !== null && ing.price !== undefined ? formatCurrency3(ing.price) : '<span class="price-missing">N/A</span>'}</td>
+            <td data-label="Rendement %" class="text-center font-mono">${yieldBadge}</td>
             <td data-label="Famille">${escapeHTML(ing.family || '—')}</td>
             <td data-label="Sous-famille">${escapeHTML(ing.subfamily || '—')}</td>
             <td data-label="Allergènes" class="allergen-cell">${allergensDisplay}</td>
@@ -242,6 +247,7 @@ function showIngredientModal(ingredientId = null) {
         document.getElementById('ingredient-unit').value = ingredient.unit;
         document.getElementById('ingredient-price').value =
             ingredient.price !== null && ingredient.price !== undefined ? ingredient.price.toFixed(3) : '';
+        document.getElementById('ingredient-yield').value = typeof ingredient.yield === 'number' ? ingredient.yield : 100;
 
         // Charger Famille
         if (ingredient.family) {
@@ -286,6 +292,7 @@ function showIngredientModal(ingredientId = null) {
     } else {
         document.getElementById('modal-title').textContent = 'Ajouter une denrée';
         document.getElementById('ingredient-id').value = '';
+        document.getElementById('ingredient-yield').value = 100;
         familySelect.value = '';
         familyCustomInput.style.display = 'none';
         familyCustomInput.value = '';
@@ -302,9 +309,16 @@ function handleIngredientFormSubmit(e) {
     const form = e.target;
     const ingredientId = form.querySelector('#ingredient-id').value;
     const priceValue = form.querySelector('#ingredient-price').value;
+    const yieldInputVal = form.querySelector('#ingredient-yield').value;
+    const yieldVal = yieldInputVal !== '' ? parseFloat(yieldInputVal) : 100;
 
     if (priceValue !== '' && parseFloat(priceValue) < 0) {
         showToast('Le prix unitaire HT ne peut pas être négatif.', 'error');
+        return;
+    }
+
+    if (isNaN(yieldVal) || yieldVal <= 0 || yieldVal > 100) {
+        showToast('Le rendement utile doit être compris entre 1% et 100%.', 'error');
         return;
     }
 
@@ -330,6 +344,7 @@ function handleIngredientFormSubmit(e) {
         name: form.querySelector('#ingredient-name').value.trim(),
         unit: form.querySelector('#ingredient-unit').value.trim(),
         price: priceValue !== '' ? parseFloat(priceValue) : null,
+        yield: yieldVal,
         family: family,
         subfamily: subfamily,
         allergens: selectedAllergens
@@ -408,12 +423,15 @@ export function showIngredientDetails(ingredientId) {
         ? allergenDetails.map(a => `<span class="allergen-badge-item" title="${a.description}">${a.icon} ${a.name}</span>`).join(' ')
         : '<em>Aucun allergène renseigné.</em>';
 
+    const yieldVal = typeof ingredient.yield === 'number' ? ingredient.yield : 100;
+
     content.innerHTML = `
         <div class="details-layout">
             <div class="details-header-info">
                 <h2>${escapeHTML(ingredient.name)}</h2>
                 <div class="details-meta-grid">
                     <div><strong>Unité:</strong> ${escapeHTML(ingredient.unit)}</div>
+                    <div><strong>Rendement:</strong> ${yieldVal}% ${yieldVal < 100 ? `<span class="text-muted">(Perte parage: ${100 - yieldVal}%)</span>` : ''}</div>
                     <div><strong>Famille:</strong> ${escapeHTML(ingredient.family || '—')}</div>
                     <div><strong>Sous-famille:</strong> ${escapeHTML(ingredient.subfamily || '—')}</div>
                 </div>
@@ -421,7 +439,7 @@ export function showIngredientDetails(ingredientId) {
 
             <div class="details-grid-kpis">
                 <div class="kpi-card" style="grid-column: 1 / -1;">
-                    <span class="kpi-label">Prix Unitaire HT</span>
+                    <span class="kpi-label">Prix Unitaire HT (Brut)</span>
                     <span class="kpi-value">${ingredient.price !== null && ingredient.price !== undefined ? formatCurrency3(ingredient.price) + ' / ' + escapeHTML(ingredient.unit) : '<span class="price-missing">Non spécifié (N/A)</span>'}</span>
                 </div>
             </div>
