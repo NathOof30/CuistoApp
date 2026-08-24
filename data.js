@@ -144,16 +144,30 @@ function calculateRecipeCost(recipe) {
   }, 0);
 }
 
+/**
+ * Trouve toutes les recettes qui utilisent un ingrédient donné
+ * @param {number|string} ingredientId - ID de l'ingrédient
+ * @returns {Array} - Liste des recettes dépendantes
+ */
+function getRecipesUsingIngredient(ingredientId) {
+  const targetId = parseInt(ingredientId);
+  if (isNaN(targetId)) return [];
+  return recipes.filter(r => 
+    Array.isArray(r.ingredients) && 
+    r.ingredients.some(item => parseInt(item.ingredientId) === targetId)
+  );
+}
+
 // === FONCTIONS DE CALCUL DE RENTABILITÉ (Prime Cost) ===
 
 /**
  * Calcule le coût main d'œuvre total pour une recette
- * Basé sur le coût horaire chargé SAS (25.00 €/h)
+ * Basé sur le coût horaire chargé SAS (22.00 €/h par défaut)
  * @param {Object} recipe - La recette
  * @returns {number} - Coût main d'œuvre total
  */
 function calculateLaborCost(recipe) {
-  const timeInMinutes = recipe?.productionTime || 0;
+  const timeInMinutes = Math.max(0, parseFloat(recipe?.productionTime) || 0);
   return (timeInMinutes / 60) * CHARGED_HOURLY_RATE;
 }
 
@@ -163,8 +177,9 @@ function calculateLaborCost(recipe) {
  * @returns {number} - Coût main d'œuvre par portion
  */
 function calculateLaborCostPerServing(recipe) {
-  if (!recipe?.servings || recipe.servings <= 0) return 0;
-  return calculateLaborCost(recipe) / recipe.servings;
+  const servings = parseFloat(recipe?.servings);
+  if (!servings || servings <= 0) return 0;
+  return calculateLaborCost(recipe) / servings;
 }
 
 /**
@@ -184,11 +199,12 @@ function calculateOverheadCost(recipe) {
  * @returns {number} - Coût complet par portion
  */
 function calculateTotalCostPerServing(recipe) {
-  if (!recipe?.servings || recipe.servings <= 0) return 0;
+  const servings = parseFloat(recipe?.servings);
+  if (!servings || servings <= 0) return 0;
   const cm = calculateRecipeCost(recipe);
   const mo = calculateLaborCost(recipe);
   const fg = (cm + mo) * OVERHEAD_RATE;
-  return (cm + mo + fg) / recipe.servings;
+  return (cm + mo + fg) / servings;
 }
 
 /**
@@ -198,8 +214,9 @@ function calculateTotalCostPerServing(recipe) {
  */
 function calculateActualPriceHTPerServing(recipe) {
   const cm = calculateRecipeCost(recipe);
-  const servings = recipe?.servings || 1;
-  const multiplier = recipe?.multiplier || 1;
+  const servings = parseFloat(recipe?.servings) || 1;
+  if (servings <= 0) return 0;
+  const multiplier = Math.max(0, parseFloat(recipe?.multiplier) || 0);
   return (cm / servings) * multiplier;
 }
 
@@ -211,25 +228,27 @@ function calculateActualPriceHTPerServing(recipe) {
 function calculateNetMargin(recipe) {
   const actualPVHT = calculateActualPriceHTPerServing(recipe);
   const costPerServing = calculateTotalCostPerServing(recipe);
-  if (actualPVHT === 0) return 0;
-  return ((actualPVHT - costPerServing) / actualPVHT) * 100;
+  if (!actualPVHT || actualPVHT <= 0) return 0;
+  const margin = ((actualPVHT - costPerServing) / actualPVHT) * 100;
+  return isNaN(margin) ? 0 : margin;
 }
 
 /**
  * Calcule la rentabilité horaire complémentaire (bénéfice d'entreprise net par heure)
- * Si >= 0 : le traiteur a payé ses courses, frais, et s'est versé 15€/h net
+ * Si >= 0 : le traiteur a payé ses courses, frais, et s'est versé son salaire net
  * Si < 0 : le prix de vente est trop bas
  * @param {Object} recipe - La recette
  * @returns {number} - Profit par heure de travail en €
  */
 function calculateHourlyProfitability(recipe) {
-  const servings = recipe?.servings || 1;
+  const servings = Math.max(1, parseFloat(recipe?.servings) || 1);
   const actualPVHT = calculateActualPriceHTPerServing(recipe);
   const costPerServing = calculateTotalCostPerServing(recipe);
   const totalProfit = (actualPVHT - costPerServing) * servings;
-  const timeInHours = (recipe?.productionTime || 0) / 60;
-  if (timeInHours === 0) return 0;
-  return totalProfit / timeInHours;
+  const timeInHours = Math.max(0, parseFloat(recipe?.productionTime) || 0) / 60;
+  if (timeInHours <= 0) return 0;
+  const profit = totalProfit / timeInHours;
+  return isNaN(profit) ? 0 : profit;
 }
 
 /**
@@ -240,10 +259,13 @@ function calculateHourlyProfitability(recipe) {
  */
 function calculateSuggestedPrice(recipe, targetMargin = TARGET_NET_MARGIN) {
   const costPerServing = calculateTotalCostPerServing(recipe);
-  if (costPerServing <= 0) return { ht: 0, ttc: 0 };
+  if (costPerServing <= 0 || targetMargin >= 1) return { ht: 0, ttc: 0 };
   const suggestedHT = costPerServing / (1 - targetMargin);
   const suggestedTTC = suggestedHT * (1 + VAT_RATE);
-  return { ht: suggestedHT, ttc: suggestedTTC };
+  return {
+    ht: isNaN(suggestedHT) ? 0 : suggestedHT,
+    ttc: isNaN(suggestedTTC) ? 0 : suggestedTTC
+  };
 }
 
 // === FONCTIONS ALLERGÈNES ===
@@ -302,10 +324,20 @@ function loadData() {
   const savedRecipes = localStorage.getItem('culinary-recipes');
   const savedMercuriale = localStorage.getItem('culinary-mercuriale');
   if (savedRecipes) {
-    recipes = JSON.parse(savedRecipes);
+    try {
+      const parsed = JSON.parse(savedRecipes);
+      if (Array.isArray(parsed)) {
+        recipes.splice(0, recipes.length, ...parsed);
+      }
+    } catch (_) {}
   }
   if (savedMercuriale) {
-    mercuriale = JSON.parse(savedMercuriale);
+    try {
+      const parsed = JSON.parse(savedMercuriale);
+      if (Array.isArray(parsed)) {
+        mercuriale.splice(0, mercuriale.length, ...parsed);
+      }
+    } catch (_) {}
   }
 
   // Injection intelligente unique pour les nems et ses ingrédients
@@ -396,11 +428,21 @@ function setData(newData) {
 
 // === GÉNÉRATION D'IDS SÛRS (auto-incrémentés) ===
 function nextRecipeId() {
-  return recipes.length > 0 ? Math.max(...recipes.map(r => r.id)) + 1 : 1;
+  if (!Array.isArray(recipes) || recipes.length === 0) return 1;
+  const maxId = recipes.reduce((max, r) => {
+    const id = parseInt(r?.id);
+    return !isNaN(id) && id > max ? id : max;
+  }, 0);
+  return maxId + 1;
 }
 
 function nextIngredientId() {
-  return mercuriale.length > 0 ? Math.max(...mercuriale.map(i => i.id)) + 1 : 1;
+  if (!Array.isArray(mercuriale) || mercuriale.length === 0) return 1;
+  const maxId = mercuriale.reduce((max, ing) => {
+    const id = parseInt(ing?.id);
+    return !isNaN(id) && id > max ? id : max;
+  }, 0);
+  return maxId + 1;
 }
 
 export {
@@ -416,8 +458,10 @@ export {
   updateGlobalSettings,
   // Fonctions de base
   getIngredientById,
+  getRecipesUsingIngredient,
   calculateRecipeCost,
   saveData,
+  loadData,
   isDataLoaded,
   setData,
   // Fonctions de rentabilité

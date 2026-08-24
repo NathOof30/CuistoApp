@@ -22,10 +22,13 @@
 
     <main id="app-container">
         <div class="page-header">
-            <h2>Liste des Recettes</h2>
+            <div>
+                <h2>📖 Fiches Techniques & Recettes</h2>
+                <p class="page-subtitle">Consultez vos fiches techniques, maîtrisez vos coûts matière et suivez votre rentabilité en direct.</p>
+            </div>
             <div class="header-actions">
                 <input type="search" id="search-recipe" placeholder="Rechercher une recette...">
-                <button id="add-recipe-btn" class="button-primary">Ajouter une recette</button>
+                <button id="add-recipe-btn" class="button-primary">+ Ajouter une recette</button>
             </div>
         </div>
 
@@ -67,9 +70,9 @@
 
                 <!-- Layout Bi-Colonne Formulaire -->
                 <div class="recipe-details-main-grid">
-                    <!-- Colonne Gauche: Saisie des informations -->
+                    <!-- Colonne Gauche: Saisie des informations en cartes aérées -->
                     <div class="recipe-details-left-panel">
-                        <!-- Carte 1: Informations Générales -->
+                        <!-- Section 1: Informations Générales & Temps -->
                         <div class="recipe-panel-card">
                             <div class="recipe-panel-header">
                                 <span>📌 Informations Générales & Temps</span>
@@ -85,7 +88,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="recipe-multiplier">Coeff. multiplicateur</label>
-                                    <input type="number" id="recipe-multiplier" required step="0.1" min="1" placeholder="3.5">
+                                    <input type="number" id="recipe-multiplier" required step="0.1" min="0.1" placeholder="3.5">
                                 </div>
                                 <div class="form-group">
                                     <label for="recipe-production-time">Temps de prod. (min)</label>
@@ -94,7 +97,7 @@
                             </div>
                         </div>
 
-                        <!-- Carte 2: Composition & Ingrédients -->
+                        <!-- Section 2: Composition & Ingrédients -->
                         <div class="recipe-panel-card">
                             <div class="recipe-panel-header">
                                 <span>🥗 Composition (Ingrédients)</span>
@@ -105,7 +108,7 @@
                             </div>
                         </div>
 
-                        <!-- Carte 3: Allergènes -->
+                        <!-- Section 3: Allergènes détectés -->
                         <div class="recipe-panel-card">
                             <div class="recipe-panel-header">
                                 <span>⚠️ Allergènes détectés</span>
@@ -115,13 +118,13 @@
                             </div>
                         </div>
 
-                        <!-- Carte 4: Instructions -->
+                        <!-- Section 4: Instructions de préparation -->
                         <div class="recipe-panel-card">
                             <div class="recipe-panel-header">
                                 <span>📝 Instructions de préparation</span>
                             </div>
                             <div class="form-group" style="margin-bottom:0;">
-                                <textarea id="recipe-steps" rows="3" placeholder="Décrivez les étapes de la recette..."></textarea>
+                                <textarea id="recipe-steps" rows="4" placeholder="Décrivez les étapes de préparation de la recette..."></textarea>
                             </div>
                         </div>
                     </div>

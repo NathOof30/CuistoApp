@@ -507,12 +507,29 @@ function handleFormSubmit(e) {
     const recipeId = form.querySelector('#recipe-id').value;
     const productionTimeInput = form.querySelector('#recipe-production-time');
 
+    const servings = parseInt(form.querySelector('#recipe-servings').value);
+    const multiplier = parseFloat(form.querySelector('#recipe-multiplier').value);
+    const productionTime = productionTimeInput ? (parseInt(productionTimeInput.value) || 0) : 0;
+
+    if (isNaN(servings) || servings <= 0) {
+        showToast('Le nombre de portions doit être au moins 1.', 'error');
+        return;
+    }
+    if (isNaN(multiplier) || multiplier <= 0) {
+        showToast('Le coefficient multiplicateur doit être supérieur à 0.', 'error');
+        return;
+    }
+    if (productionTime < 0) {
+        showToast('Le temps de production ne peut pas être négatif.', 'error');
+        return;
+    }
+
     const recipeData = {
         id: recipeId ? parseInt(recipeId) : nextRecipeId(),
-        name: form.querySelector('#recipe-name').value,
-        servings: parseInt(form.querySelector('#recipe-servings').value),
-        multiplier: parseFloat(form.querySelector('#recipe-multiplier').value),
-        productionTime: productionTimeInput ? (parseInt(productionTimeInput.value) || 0) : 0,
+        name: form.querySelector('#recipe-name').value.trim(),
+        servings: servings,
+        multiplier: multiplier,
+        productionTime: productionTime,
         steps: form.querySelector('#recipe-steps').value || '',
         ingredients: []
     };

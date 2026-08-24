@@ -2197,6 +2197,40 @@ body.dark-mode .global-total-banner {
         gap: 0.5rem;
         text-align: center;
     }
+/* --- Styles des Cartes de Formulaire de Recette (UI/UX Moderne & Aérée) --- */
+.recipe-panel-card {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: var(--transition);
+}
+
+.recipe-panel-card:hover {
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
+.recipe-panel-card:last-child {
+    margin-bottom: 0;
+}
+
+.recipe-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text-color);
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 2px solid var(--border-light);
+}
+
+@keyframes fadeInTab {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* --- Styles d'Impression PDF Dédiés --- */

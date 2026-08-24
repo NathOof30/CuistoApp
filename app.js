@@ -2,7 +2,7 @@ import { initDashboard } from './js/dashboard.js';
 import { initRecettesPage } from './js/recettes.js';
 import { initMercurialePage } from './js/mercuriale.js';
 import { initBonEconomatPage } from './js/bon-economat.js';
-import { isDataLoaded } from './data.js';
+import { isDataLoaded, loadData, updateGlobalSettings } from './data.js';
 import { initDataManagement, showFirstVisitModal } from './js/data-management.js';
 import { showToast } from './js/ui-feedback.js';
 
@@ -14,6 +14,20 @@ function updateStickyHeaderOffset() {
     if (!header) return;
     const headerHeight = Math.ceil(header.getBoundingClientRect().height);
     document.documentElement.style.setProperty('--sticky-header-offset', `${headerHeight}px`);
+}
+
+function renderCurrentPage() {
+    const path = window.location.pathname.split("/").pop();
+    if (path === 'index.html' || path === '') {
+        initDashboard();
+        initDataManagement();
+    } else if (path === 'recettes.html') {
+        initRecettesPage();
+    } else if (path === 'mercuriale.html') {
+        initMercurialePage();
+    } else if (path === 'bon-economat.html') {
+        initBonEconomatPage();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,16 +67,17 @@ document.addEventListener('DOMContentLoaded', () => {
         showFirstVisitModal();
     }
 
-    if (path === 'index.html' || path === '') {
-        initDashboard();
-        initDataManagement();
-    } else if (path === 'recettes.html') {
-        initRecettesPage();
-    } else if (path === 'mercuriale.html') {
-        initMercurialePage();
-    } else if (path === 'bon-economat.html') {
-        initBonEconomatPage();
-    }
+    renderCurrentPage();
+
+    // Synchronisation inter-onglets en temps réel
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'culinary-recipes' || e.key === 'culinary-mercuriale' || (e.key && e.key.startsWith('settings-'))) {
+            loadData();
+            updateGlobalSettings();
+            renderCurrentPage();
+            showToast('Données mises à jour depuis un autre onglet.', 'info', 2000);
+        }
+    });
 
     // Global Modal Handling (Escape and backdrop clicks)
     document.addEventListener('keydown', (e) => {

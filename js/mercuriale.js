@@ -1,4 +1,4 @@
-import { mercuriale, recipes, getIngredientById, saveData, EU_ALLERGENS, nextIngredientId } from '../data.js';
+import { mercuriale, recipes, getIngredientById, getRecipesUsingIngredient, saveData, EU_ALLERGENS, nextIngredientId } from '../data.js';
 import { formatCurrency, formatCurrency3, escapeHTML } from './common.js';
 import { displayNotifications } from './dashboard.js';
 import { showToast, showConfirm } from './ui-feedback.js';
@@ -303,6 +303,11 @@ function handleIngredientFormSubmit(e) {
     const ingredientId = form.querySelector('#ingredient-id').value;
     const priceValue = form.querySelector('#ingredient-price').value;
 
+    if (priceValue !== '' && parseFloat(priceValue) < 0) {
+        showToast('Le prix unitaire HT ne peut pas être négatif.', 'error');
+        return;
+    }
+
     const selectedAllergens = [];
     form.querySelectorAll('input[name="allergens"]:checked').forEach(cb => {
         selectedAllergens.push(cb.value);
@@ -332,7 +337,9 @@ function handleIngredientFormSubmit(e) {
 
     if (ingredientId) {
         const index = mercuriale.findIndex(i => i.id == ingredientId);
-        mercuriale[index] = ingredientData;
+        if (index !== -1) {
+            mercuriale[index] = ingredientData;
+        }
     } else {
         mercuriale.push(ingredientData);
     }
@@ -349,30 +356,40 @@ function handleIngredientFormSubmit(e) {
 }
 
 function deleteIngredient(ingredientId) {
-    const usedIn = recipes.filter(r =>
-        r.ingredients && r.ingredients.some(i => i.ingredientId == ingredientId)
-    );
-    const ingredient = getIngredientById(parseInt(ingredientId));
+    const numericId = parseInt(ingredientId);
+    const usedIn = getRecipesUsingIngredient(numericId);
+    const ingredient = getIngredientById(numericId);
     const name = ingredient ? escapeHTML(ingredient.name) : 'cette denrée';
 
-    let message = `Supprimer <strong>${name}</strong> ?`;
+    let message = `Supprimer la denrée <strong>${name}</strong> ?`;
     if (usedIn.length > 0) {
         const recipeNames = usedIn.map(r => `<em>${escapeHTML(r.name)}</em>`).join(', ');
-        message += `<br><br>⚠️ Elle est utilisée dans ${usedIn.length} recette(s) : ${recipeNames}.<br>Les calculs de coûts de ces recettes seront impactés.`;
+        message += `<br><br>⚠️ <strong>Attention :</strong> Cette denrée est utilisée dans ${usedIn.length} recette(s) : ${recipeNames}.<br><br>En la supprimant, elle sera automatiquement retirée de la liste des ingrédients de ces recettes pour préserver l'intégrité de vos calculs de coûts.`;
     }
 
     showConfirm(message, () => {
-        const idx = mercuriale.findIndex(i => i.id == ingredientId);
+        // Nettoyage propre des références dans les recettes
+        if (usedIn.length > 0) {
+            recipes.forEach(r => {
+                if (Array.isArray(r.ingredients)) {
+                    r.ingredients = r.ingredients.filter(item => parseInt(item.ingredientId) !== numericId);
+                }
+            });
+        }
+        const idx = mercuriale.findIndex(i => parseInt(i.id) === numericId);
         if (idx !== -1) {
             mercuriale.splice(idx, 1);
             saveData(recipes, mercuriale);
         }
         populateFamilyFilter();
         renderMercurialeTable();
-        showToast('Denrée supprimée.', 'warning');
+        if (document.getElementById('notifications-list')) {
+            displayNotifications();
+        }
+        showToast(usedIn.length > 0 ? 'Denrée supprimée et retirée des recettes associées.' : 'Denrée supprimée.', 'warning');
     }, {
         title: 'Supprimer une denrée',
-        confirmLabel: 'Supprimer',
+        confirmLabel: usedIn.length > 0 ? 'Nettoyer & Supprimer' : 'Supprimer',
         cancelLabel: 'Annuler',
         danger: true
     });
