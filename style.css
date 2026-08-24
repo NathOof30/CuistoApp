@@ -1469,26 +1469,300 @@ body.dark-mode .friendly-alert-card.alert-danger {
     }
 }
 
-/* --- Print Styles --- */
+/* --- Masquage par défaut sur écran --- */
+#calculation-audit-print-area {
+    display: none;
+}
+
+/* --- Feuille d'Audit de Calculs (Styles Formels pour Impression Client) --- */
+.audit-sheet {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    color: #111827;
+    background: #ffffff;
+    padding: 0.25rem;
+    font-size: 0.84rem;
+    line-height: 1.35;
+}
+
+.audit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.6rem;
+}
+
+.audit-title-block h1 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin: 0;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+
+.audit-subtitle {
+    font-size: 0.78rem;
+    color: #475569;
+    margin-top: 0.15rem;
+}
+
+.audit-meta-block {
+    text-align: right;
+    font-size: 0.8rem;
+    color: #334155;
+}
+
+.audit-section {
+    margin-bottom: 0.55rem;
+}
+
+.audit-section h2 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #0f172a;
+    background: #f1f5f9;
+    padding: 0.2rem 0.5rem;
+    border-left: 3px solid #2563eb;
+    margin: 0 0 0.35rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.audit-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+    margin-bottom: 0.35rem;
+}
+
+.audit-card {
+    border: 1px solid #cbd5e1;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    background: #f8fafc;
+    text-align: center;
+}
+
+.audit-card .card-label {
+    display: block;
+    font-size: 0.7rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.audit-card .card-value {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 0.1rem;
+}
+
+.audit-params-list {
+    font-size: 0.75rem;
+    color: #475569;
+    text-align: center;
+    background: #f8fafc;
+    padding: 0.2rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+}
+
+/* Interdiction stricte de la transformation responsive pour la feuille d'audit */
+.audit-table {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    font-size: 0.78rem !important;
+    margin-top: 0.2rem !important;
+}
+
+.audit-table thead {
+    display: table-header-group !important;
+}
+
+.audit-table tbody {
+    display: table-row-group !important;
+}
+
+.audit-table tfoot {
+    display: table-footer-group !important;
+}
+
+.audit-table tr {
+    display: table-row !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+.audit-table th,
+.audit-table td {
+    display: table-cell !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+}
+
+.audit-table td::before,
+.audit-table th::before {
+    content: none !important;
+    display: none !important;
+}
+
+.audit-table th {
+    background-color: #e2e8f0 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    padding: 0.3rem 0.4rem !important;
+    border: 1px solid #cbd5e1 !important;
+    text-align: left !important;
+    font-size: 0.73rem !important;
+}
+
+.audit-table td {
+    padding: 0.25rem 0.4rem !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.audit-table th.col-num { width: 5% !important; text-align: center !important; }
+.audit-table th.col-name { width: 38% !important; }
+.audit-table th.col-qty { width: 19% !important; text-align: right !important; }
+.audit-table th.col-pu { width: 19% !important; text-align: right !important; }
+.audit-table th.col-total { width: 19% !important; text-align: right !important; }
+
+.audit-table tfoot td {
+    border-top: 2px solid #0f172a !important;
+    background-color: #f8fafc !important;
+    padding: 0.3rem 0.4rem !important;
+}
+
+.audit-table tfoot tr.highlight-row td {
+    background-color: #eff6ff !important;
+    color: #1e40af !important;
+}
+
+/* Grilles de formules 3 colonnes */
+.audit-formula-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0.3rem 0.45rem;
+}
+
+.audit-formula-grid.highlight {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 3px solid #16a34a;
+}
+
+.audit-formula-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.18rem 0.25rem;
+    font-size: 0.77rem;
+    border-bottom: 1px dashed #e2e8f0;
+}
+
+.audit-formula-row:last-child {
+    border-bottom: none;
+}
+
+.audit-formula-row.bold-row {
+    font-weight: 700;
+    background-color: #f1f5f9;
+}
+
+.audit-formula-row.highlight-row {
+    font-weight: 700;
+    background-color: #eff6ff;
+    color: #1d4ed8;
+}
+
+.formula-label {
+    flex: 1.2;
+    color: #334155;
+    font-weight: 600;
+}
+
+.formula-expr {
+    flex: 1.5;
+    text-align: center;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.74rem;
+    color: #475569;
+}
+
+.formula-val {
+    flex: 1;
+    text-align: right;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: #0f172a;
+}
+
+.audit-footer {
+    margin-top: 0.55rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.68rem;
+    color: #64748b;
+    text-align: center;
+}
+
+/* --- Styles d'Impression PDF Dédiés --- */
 @media print {
-    header,
-    .button-primary,
-    .button-secondary,
-    .action-cell,
-    .header-actions,
-    .bon-economat-actions,
-    #theme-toggle-btn {
-        display: none !important;
+    *, *:before, *:after {
+        box-sizing: border-box !important;
     }
 
-    body {
-        background-color: white !important;
+    html, body {
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
         color: black !important;
     }
 
-    .card {
-        border: 1px solid #ccc;
-        box-shadow: none !important;
-        break-inside: avoid;
+    body * {
+        visibility: hidden !important;
+    }
+
+    #calculation-audit-print-area,
+    #calculation-audit-print-area * {
+        visibility: visible !important;
+    }
+
+    #calculation-audit-print-area {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        background: white !important;
+        color: black !important;
+    }
+
+    .audit-sheet {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        font-size: 8.5pt !important;
+    }
+
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
     }
 }

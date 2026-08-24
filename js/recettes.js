@@ -1,5 +1,5 @@
 import {
-    mercuriale, recipes, VAT_RATE,
+    mercuriale, recipes, VAT_RATE, CHARGED_HOURLY_RATE, OVERHEAD_RATE, TARGET_NET_MARGIN,
     getIngredientById, calculateRecipeCost, saveData,
     EU_ALLERGENS,
     calculateLaborCostPerServing, calculateTotalCostPerServing,
@@ -827,7 +827,17 @@ export function showRecipeDetails(recipeId) {
     if (dupBtn) dupBtn.onclick = () => { modal.style.display = 'none'; duplicateRecipe(recipeId); };
 
     const printBtn = document.getElementById('details-print-btn');
-    if (printBtn) printBtn.onclick = () => { window.print(); };
+    if (printBtn) {
+        printBtn.textContent = '📄 Feuille de calcul (PDF)';
+        printBtn.title = 'Générer et imprimer la feuille d\'audit mathématique et de calculs';
+        printBtn.onclick = () => {
+            const auditContainer = document.getElementById('calculation-audit-print-area');
+            if (auditContainer) {
+                auditContainer.innerHTML = generateCalculationAuditHTML(recipe);
+            }
+            window.print();
+        };
+    }
 
     const deleteBtn = document.getElementById('details-delete-btn');
     if (deleteBtn) deleteBtn.onclick = () => {
@@ -836,4 +846,240 @@ export function showRecipeDetails(recipeId) {
     };
 
     modal.style.display = 'flex';
+}
+
+// === GÉNÉRATION DE LA FEUILLE D'AUDIT DE CALCULS (IMPRESSION PDF) ===
+function generateCalculationAuditHTML(recipe) {
+    const servings = recipe.servings || 1;
+    const multiplier = recipe.multiplier || 1;
+    const prodTimeMinutes = recipe.productionTime || 0;
+    const prodTimeHours = prodTimeMinutes / 60;
+    const currentDateStr = new Date().toLocaleDateString('fr-FR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    // 1. Décomposition Matières Directes
+    let totalFoodCost = 0;
+    const ingredientRows = (recipe.ingredients || []).map((item, index) => {
+        const ing = getIngredientById(item.ingredientId);
+        const name = ing ? ing.name : `Ingrédient inconnu (#${item.ingredientId})`;
+        const unit = ing ? ing.unit : 'unités';
+        const priceUnit = (ing && typeof ing.price === 'number' && Number.isFinite(ing.price)) ? ing.price : 0;
+        const lineCost = priceUnit * item.quantity;
+        totalFoodCost += lineCost;
+
+        return `
+            <tr>
+                <td style="text-align:center;">${index + 1}</td>
+                <td><strong>${escapeHTML(name)}</strong></td>
+                <td style="text-align:right;">${item.quantity.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${escapeHTML(unit)}</td>
+                <td style="text-align:right;">${formatCurrency3(priceUnit)} / ${escapeHTML(unit)}</td>
+                <td style="text-align:right; font-weight:600;">${formatCurrency3(lineCost)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const foodCostPerServing = totalFoodCost / servings;
+
+    // 2. Main d'Œuvre (Labor Cost)
+    const laborTimePerServingMin = prodTimeMinutes / servings;
+    const laborCostPerServing = (laborTimePerServingMin / 60) * CHARGED_HOURLY_RATE;
+    const totalLaborCost = prodTimeHours * CHARGED_HOURLY_RATE;
+
+    // 3. Prime Cost & Overhead & Full Cost
+    const primeCostPerServing = foodCostPerServing + laborCostPerServing;
+    const overheadPerServing = primeCostPerServing * OVERHEAD_RATE;
+    const fullCostPerServing = primeCostPerServing + overheadPerServing;
+    const totalFullCost = fullCostPerServing * servings;
+
+    // 4. Tarification & Prix Fixé
+    const salePriceHT = foodCostPerServing * multiplier;
+    const salePriceTTC = salePriceHT * (1 + VAT_RATE);
+
+    // 5. Analyse Financière & Marge Nette Réelle
+    const netProfitPerServing = salePriceHT - fullCostPerServing;
+    const totalNetProfit = netProfitPerServing * servings;
+    const netMarginPercent = salePriceHT > 0 ? (netProfitPerServing / salePriceHT) * 100 : 0;
+    const grossMarginPercent = salePriceHT > 0 ? ((salePriceHT - foodCostPerServing) / salePriceHT) * 100 : 0;
+    const hourlyProfitability = prodTimeHours > 0 ? totalNetProfit / prodTimeHours : 0;
+
+    // 6. Tarification Cible (Marge Nette 25%)
+    const suggestedPriceHT = fullCostPerServing / (1 - TARGET_NET_MARGIN);
+    const suggestedPriceTTC = suggestedPriceHT * (1 + VAT_RATE);
+
+    return `
+        <div class="audit-sheet">
+            <div class="audit-header">
+                <div class="audit-title-block">
+                    <h1>FEUILLE DE CALCUL & AUDIT DE RENTABILITÉ MÉTIER</h1>
+                    <div class="audit-subtitle">Fiche technique & Rapport mathématique exhaustif pour client</div>
+                </div>
+                <div class="audit-meta-block">
+                    <div><strong>Date :</strong> ${currentDateStr}</div>
+                    <div><strong>Recette :</strong> ${escapeHTML(recipe.name)}</div>
+                </div>
+            </div>
+
+            <!-- Paramètres de Configuration Globaux -->
+            <div class="audit-section">
+                <h2>1. PARAMÈTRES ET HYPOTHÈSES DE CALCUL</h2>
+                <div class="audit-grid-4">
+                    <div class="audit-card">
+                        <span class="card-label">Portions (N)</span>
+                        <span class="card-value">${servings}</span>
+                    </div>
+                    <div class="audit-card">
+                        <span class="card-label">Temps Prod. Total (T)</span>
+                        <span class="card-value">${prodTimeMinutes} min (${prodTimeHours.toFixed(2)} h)</span>
+                    </div>
+                    <div class="audit-card">
+                        <span class="card-label">Coeff. Multiplicateur (CM)</span>
+                        <span class="card-value">${multiplier}</span>
+                    </div>
+                    <div class="audit-card">
+                        <span class="card-label">Taux Horaire MO (TH)</span>
+                        <span class="card-value">${formatCurrency(CHARGED_HOURLY_RATE)}/h</span>
+                    </div>
+                </div>
+                <div class="audit-params-list">
+                    <span>Frais Généraux : <strong>${(OVERHEAD_RATE * 100).toFixed(0)}%</strong> du Prime Cost</span> | 
+                    <span>Taux de TVA : <strong>${(VAT_RATE * 100).toFixed(0)}%</strong></span> | 
+                    <span>Marge Nette Cible : <strong>${(TARGET_NET_MARGIN * 100).toFixed(0)}%</strong></span>
+                </div>
+            </div>
+
+            <!-- 2. Décomposition Matières Première -->
+            <div class="audit-section">
+                <h2>2. DÉCOMPOSITION DES COÛTS MATIÈRES DIRECTS (FOOD COST)</h2>
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th class="col-num">#</th>
+                            <th class="col-name">Ingrédient</th>
+                            <th class="col-qty">Quantité nette</th>
+                            <th class="col-pu">Prix Unitaire HT</th>
+                            <th class="col-total">Coût Ligne HT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${ingredientRows || '<tr><td colspan="5" style="text-align:center;">Aucun ingrédient renseigné</td></tr>'}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="text-align:right; font-weight:bold;">Coût Matière Total (CMT) :</td>
+                            <td style="text-align:right; font-weight:bold;">${formatCurrency3(totalFoodCost)}</td>
+                        </tr>
+                        <tr class="highlight-row">
+                            <td colspan="4" style="text-align:right; font-weight:bold;">Coût Matière / Portion (CMP = CMT / N) :</td>
+                            <td style="text-align:right; font-weight:bold;">${formatCurrency3(foodCostPerServing)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- 3. Formules Main d'Oeuvre & Prime Cost -->
+            <div class="audit-section">
+                <h2>3. COÛT MAIN D'ŒUVRE & PRIME COST</h2>
+                <div class="audit-formula-grid">
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Temps MO par portion</span>
+                        <span class="formula-expr">T_min / N = ${prodTimeMinutes} / ${servings}</span>
+                        <span class="formula-val">${laborTimePerServingMin.toFixed(2)} min</span>
+                    </div>
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Coût MO par portion</span>
+                        <span class="formula-expr">(${laborTimePerServingMin.toFixed(2)} min / 60) × ${CHARGED_HOURLY_RATE.toFixed(2)} €</span>
+                        <span class="formula-val">${formatCurrency3(laborCostPerServing)}</span>
+                    </div>
+                    <div class="audit-formula-row bold-row">
+                        <span class="formula-label">Prime Cost par portion</span>
+                        <span class="formula-expr">CMP + CMO_portion = ${formatCurrency3(foodCostPerServing)} + ${formatCurrency3(laborCostPerServing)}</span>
+                        <span class="formula-val">${formatCurrency3(primeCostPerServing)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Coût Complet (Full Cost) -->
+            <div class="audit-section">
+                <h2>4. FRAIS GÉNÉRAUX & COÛT COMPLET (FULL COST)</h2>
+                <div class="audit-formula-grid">
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Frais Généraux / portion (10%)</span>
+                        <span class="formula-expr">PC_portion × 10% = ${formatCurrency3(primeCostPerServing)} × 0,10</span>
+                        <span class="formula-val">${formatCurrency3(overheadPerServing)}</span>
+                    </div>
+                    <div class="audit-formula-row bold-row">
+                        <span class="formula-label">Coût Complet par portion</span>
+                        <span class="formula-expr">PC_portion + FG_portion</span>
+                        <span class="formula-val">${formatCurrency3(fullCostPerServing)}</span>
+                    </div>
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Coût Complet Total Recette</span>
+                        <span class="formula-expr">CC_portion × N = ${formatCurrency3(fullCostPerServing)} × ${servings}</span>
+                        <span class="formula-val">${formatCurrency3(totalFullCost)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Tarification Fixée & Analyse Financière -->
+            <div class="audit-section">
+                <h2>5. TARIFICATION APPLIQUÉE & MARGE NETTE RÉELLE</h2>
+                <div class="audit-formula-grid">
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Prix de Vente HT (CM = ${multiplier})</span>
+                        <span class="formula-expr">CMP × CM = ${formatCurrency3(foodCostPerServing)} × ${multiplier}</span>
+                        <span class="formula-val">${formatCurrency3(salePriceHT)} HT</span>
+                    </div>
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Prix de Vente TTC (TVA ${(VAT_RATE*100).toFixed(0)}%)</span>
+                        <span class="formula-expr">PV_HT × 1,10</span>
+                        <span class="formula-val">${formatCurrency3(salePriceTTC)} TTC</span>
+                    </div>
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Bénéfice Net / portion</span>
+                        <span class="formula-expr">PV_HT - CC_portion = ${formatCurrency3(salePriceHT)} - ${formatCurrency3(fullCostPerServing)}</span>
+                        <span class="formula-val">${formatCurrency3(netProfitPerServing)}</span>
+                    </div>
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Marge Brute (%)</span>
+                        <span class="formula-expr">((PV_HT - CMP) / PV_HT) × 100</span>
+                        <span class="formula-val">${grossMarginPercent.toFixed(1)} %</span>
+                    </div>
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Marge Nette Réelle (%)</span>
+                        <span class="formula-expr">(B_net / PV_HT) × 100</span>
+                        <span class="formula-val">${netMarginPercent.toFixed(1)} %</span>
+                    </div>
+                    <div class="audit-formula-row highlight-row">
+                        <span class="formula-label">Rentabilité Horaire Gérant</span>
+                        <span class="formula-expr">B_net_total / T_heures = ${formatCurrency3(totalNetProfit)} / ${prodTimeHours.toFixed(2)}h</span>
+                        <span class="formula-val">${hourlyProfitability.toFixed(2)} €/h</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Tarification Cible Suggérée -->
+            <div class="audit-section">
+                <h2>6. PRIX DE VENTE SUGGÉRÉ POUR MARGE NETTE CIBLE (25%)</h2>
+                <div class="audit-formula-grid highlight">
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Prix HT Suggéré (MN 25%)</span>
+                        <span class="formula-expr">CC_portion / (1 - 0,25) = ${formatCurrency3(fullCostPerServing)} / 0,75</span>
+                        <span class="formula-val">${formatCurrency3(suggestedPriceHT)} HT</span>
+                    </div>
+                    <div class="audit-formula-row">
+                        <span class="formula-label">Prix TTC Suggéré</span>
+                        <span class="formula-expr">PV_HT_suggéré × 1,10</span>
+                        <span class="formula-val">${formatCurrency3(suggestedPriceTTC)} TTC</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="audit-footer">
+                Feuille de Calcul & Audit Financier générée par l'Application de Gestion Culinaire • Modèle Prime Cost SAS.
+            </div>
+        </div>
+    `;
 }
