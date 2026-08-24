@@ -23,8 +23,10 @@ Version : 3.0 (SAS & Prime Cost)
     1. PARAMÈTRES DE CONFIGURATION (SAS)
 ═══════════════════════════════════════════════════════════════════════════════
 
-L'application utilise des constantes système fixes pour modéliser la réalité 
-fiscale d'un dirigeant de SAS (assimilé-salarié) :
+L'application utilise des constantes système (avec valeurs par défaut) pour 
+modéliser la réalité fiscale d'un dirigeant de SAS (assimilé-salarié). 
+Ces paramètres peuvent également être personnalisés en direct par l'utilisateur 
+depuis le formulaire du Tableau de bord (enregistrés dans le localStorage) :
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ VAT_RATE (Taux de TVA)                                                      │
