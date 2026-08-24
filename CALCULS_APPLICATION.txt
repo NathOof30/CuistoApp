@@ -39,10 +39,9 @@ depuis le formulaire du Tableau de bord (enregistrés dans le localStorage) :
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ CHARGED_HOURLY_RATE (Coût horaire chargé SAS)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ Valeur : 27.30 €/h                                                          │
-│ Calcul : 15.00 €/h (net souhaité) × 1.82 (coefficient de charges globales)  │
-│ Description : Coût réel supporté par l'entreprise pour rémunérer le         │
-│               dirigeant à hauteur de 15.00 € nets de l'heure.               │
+│ Valeur : 25.00 €/h                                                          │
+│ Description : Coût horaire chargé supporté par l'entreprise pour la         │
+│               rémunération de la main d'œuvre en cuisine.                   │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -127,7 +126,7 @@ standardisée du Prime Cost.
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE :                                                                   │
-│   Coût MO brut = (Temps production en minutes ÷ 60) × 27.30                 │
+│   Coût MO brut = (Temps production en minutes ÷ 60) × 25.00                 │
 │                                                                             │
 │ DESCRIPTION :                                                               │
 │   Calcule le coût horaire chargé SAS pour le temps passé en cuisine.        │
@@ -230,60 +229,74 @@ standardisée du Prime Cost.
 ═══════════════════════════════════════════════════════════════════════════════
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ 6.1 - EXEMPLE COMPLET 1 : MOUSSE AU CHOCOLAT                                │
+│ 6.1 - EXEMPLE COMPLET 1 : CREVETTES AU CURRY (Données Réelles)             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ DONNÉES DE BASE :                                                           │
-│   • Portions : 6  | Temps : 30 minutes (0.5 h)  | Multiplicateur : 3.5      │
+│   • Portions : 4  | Temps : 20 minutes (0.333 h) | Multiplicateur : 3.5      │
 │                                                                             │
 │ INGRÉDIENTS :                                                               │
-│   • Chocolat noir 70% : 200g à 0.015 €/g = 3.00 €                           │
-│   • Œufs : 4 pièces à 0.25 €/pièce = 1.00 €                                 │
-│   • Sucre : 50g à 0.0015 €/g = 0.075 €                                      │
+│   • Crev N/D 26/30 : 1 kg à 14.00 €/kg = 14.00 € (Allergène : Crustacés 🦞)   │
+│   • Poivrons : 0.75 kg à 4.00 €/kg = 3.00 €                                 │
+│   • Tomate : 0.1 kg à 2.50 €/kg = 0.25 €                                    │
+│   • Oignon : 0.15 kg à 1.50 €/kg = 0.225 €                                  │
+│   • Ail : 0.012 kg à 6.40 €/kg = 0.0768 €                                   │
+│   • Lait de coco : 0.3 L à 5.00 €/L = 1.50 €                                │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│ ÉTAPE 1 : COÛT MATIÈRE (CM)                                                 │
+│ ÉTAPE 1 : COÛT MATIÈRE (CM / FOOD COST)                                     │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   CM total brut = 3.00 + 1.00 + 0.075 = 4.075 €      → AFFICHÉ : 4.10 €     │
-│   CM unitaire brut = 4.075 ÷ 6 = 0.679167 €          → AFFICHÉ : 0.70 €     │
+│   CM total brut = 14.00 + 3.00 + 0.25 + 0.225 + 0.0768 + 1.50               │
+│                 = 19.0518 €                          → AFFICHÉ : 19.052 €   │
+│   CM unitaire brut = 19.0518 ÷ 4 = 4.76295 €         → AFFICHÉ : 4.80 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│ ÉTAPE 2 : COÛT MAIN D'ŒUVRE (MO)                                            │
+│ ÉTAPE 2 : COÛT MAIN D'ŒUVRE (MO / LABOR COST)                               │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   MO total brut = (30 ÷ 60) × 27.30 = 13.65 €        → AFFICHÉ : 13.70 €    │
-│   MO unitaire brut = 13.65 ÷ 6 = 2.275 €                                    │
+│   MO total brut = (20 ÷ 60) × 25.00 = 8.333 €        → AFFICHÉ : 8.333 €    │
+│   MO unitaire brut = 8.333 ÷ 4 = 2.083 €             → AFFICHÉ : 2.10 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│ ÉTAPE 3 : PRIME COST & FRAIS GÉNÉRAUX (FG)                                  │
+│ ÉTAPE 3 : PRIME COST & FRAIS GÉNÉRAUX (FG / OVERHEAD)                       │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Prime Cost = 4.075 + 13.65 = 17.725 €                                     │
-│   FG = 17.725 × 0.10 = 1.7725 €                      → AFFICHÉ : 1.80 €     │
+│   Prime Cost total = 19.0518 + 8.3333 = 27.3851 €                           │
+│   FG total brut = 27.3851 × 0.10 = 2.7385 €          → AFFICHÉ : 2.74 €     │
+│   FG unitaire brut = 2.7385 ÷ 4 = 0.6846 €                                  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│ ÉTAPE 4 : COÛT COMPLET                                                      │
+│ ÉTAPE 4 : COÛT COMPLET (FULL COST)                                          │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Coût Complet total = 17.725 + 1.7725 = 19.4975 €                          │
-│   Coût Complet unitaire brut = 19.4975 ÷ 6 = 3.249583 € → AFFICHÉ : 3.30 €  │
+│   Coût Complet total = 27.3851 + 2.7385 = 30.1236 €                         │
+│   Coût Complet unitaire brut = 30.1236 ÷ 4 = 7.5309 € → AFFICHÉ : 7.60 €    │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│ ÉTAPE 5 : PRIX ACTUEL ET MARGE                                              │
+│ ÉTAPE 5 : PRIX ACTUEL ET MARGES                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   PV HT actuel = (4.075 ÷ 6) × 3.5 = 2.377083 €      → AFFICHÉ : 2.40 €     │
-│   PV TTC actuel = 2.377083 × 1.10 = 2.614791 €       → AFFICHÉ : 2.70 €     │
-│   Marge Nette réelle = ((2.377083 - 3.249583) ÷ 2.377083) × 100             │
-│                      = -36.70%                       → AFFICHÉE : -36.7% ⚠️ │
+│   PV HT actuel = 4.76295 × 3.5 = 16.6703 €           → AFFICHÉ : 16.70 €    │
+│   PV TTC actuel = 16.6703 × 1.10 = 18.3374 €         → AFFICHÉ : 18.40 €    │
+│   Marge Brute = ((16.6703 - 4.76295) ÷ 16.6703) × 100                       │
+│               = 71.428%                              → AFFICHÉE : 71.4% ✅  │
+│   Marge Nette réelle = ((16.6703 - 7.5309) ÷ 16.6703) × 100                 │
+│                      = 54.824%                       → AFFICHÉE : 54.8% ✅  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 6 : RENTABILITÉ HORAIRE COMPLÉMENTAIRE                                │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Profit total brut = (2.377083 - 3.249583) × 6 = -5.235 €                  │
-│   Profit/heure brut = -5.235 ÷ 0.5 = -10.47 €/h      → AFFICHÉ : -10.50 €/h │
+│   Profit total brut = (16.6703 - 7.5309) × 4 = 36.5576 €                    │
+│   Profit/heure brut = 36.5576 ÷ (20 ÷ 60)                                   │
+│                     = 109.673 €/h                    → AFFICHÉ : 109.70 €/h │
+│   (Interprétation : Salaires et frais payés, l'activité dégage 109.70 €/h net)│
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│ ÉTAPE 7 : PRIX SUGGÉRÉ (Marge 25%)                                          │
+│ ÉTAPE 7 : PRIX SUGGÉRÉ (Marge Nette Cible 25%)                              │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   PV suggéré HT unitaire = 3.249583 ÷ 0.75 = 4.332777 € → AFFICHÉ : 4.40 €  │
-│   PV suggéré TTC unitaire = 4.332777 × 1.10 = 4.766055 € → AFFICHÉ : 4.80 € │
+│   PV suggéré HT unitaire = 7.5309 ÷ 0.75 = 10.0412 €  → AFFICHÉ : 10.10 €   │
+│   PV suggéré TTC unitaire = 10.0412 × 1.10 = 11.0453 € → AFFICHÉ : 11.10 €  │
+│                                                                             │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│ ÉTAPE 8 : BILAN ALLERGÈNES                                                  │
+│ ─────────────────────────────────────────────────────────────────────────   │
+│   Allergènes détectés : 1 (Crustacés 🦞 via Crev N/D 26/30)                  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -310,28 +323,28 @@ standardisée du Prime Cost.
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 2 : COÛT MAIN D'ŒUVRE (MO)                                            │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   MO total brut = (45 ÷ 60) × 27.30 = 20.475 €       → AFFICHÉ : 20.50 €    │
-│   MO unitaire brut = 20.475 ÷ 4 = 5.11875 €                                 │
+│   MO total brut = (45 ÷ 60) × 25.00 = 18.75 €        → AFFICHÉ : 18.75 €    │
+│   MO unitaire brut = 18.75 ÷ 4 = 4.6875 €                                   │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 3 : PRIME COST & FRAIS GÉNÉRAUX (FG)                                  │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Prime Cost = 3.335 + 20.475 = 23.81 €                                     │
-│   FG = 23.81 × 0.10 = 2.381 €                        → AFFICHÉ : 2.40 €     │
+│   Prime Cost = 3.335 + 18.75 = 22.085 €                                     │
+│   FG = 22.085 × 0.10 = 2.2085 €                      → AFFICHÉ : 2.21 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 4 : COÛT COMPLET                                                      │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Coût Complet total = 23.81 + 2.381 = 26.191 €                             │
-│   Coût Complet unitaire brut = 26.191 ÷ 4 = 6.54775 €    → AFFICHÉ : 6.60 €  │
+│   Coût Complet total = 22.085 + 2.2085 = 24.2935 €                          │
+│   Coût Complet unitaire brut = 24.2935 ÷ 4 = 6.073375 € → AFFICHÉ : 6.10 €  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 5 : PRIX ACTUEL ET MARGE                                              │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   PV HT actuel = (3.335 ÷ 4) × 4.0 = 3.335 €         → AFFICHÉ : 3.40 €     │
 │   PV TTC actuel = 3.335 × 1.10 = 3.6685 €            → AFFICHÉ : 3.70 €     │
-│   Marge Nette réelle = ((3.335 - 6.54775) ÷ 3.335) × 100                    │
-│                      = -96.33%                       → AFFICHÉE : -96.3% ⚠️ │
+│   Marge Nette réelle = ((3.335 - 6.073375) ÷ 3.335) × 100                   │
+│                      = -82.11%                       → AFFICHÉE : -82.1% ⚠️ │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 6 : RENTABILITÉ HORAIRE COMPLÉMENTAIRE                                │

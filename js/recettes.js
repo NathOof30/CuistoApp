@@ -55,6 +55,8 @@ export function initRecettesPage() {
     const form = document.getElementById('recipe-form');
     form.addEventListener('submit', handleFormSubmit);
     document.getElementById('cancel-btn').addEventListener('click', () => { modal.style.display = 'none'; });
+    const closeFormX = document.getElementById('recipe-modal-close-x-btn');
+    if (closeFormX) closeFormX.addEventListener('click', () => { modal.style.display = 'none'; });
     document.getElementById('add-ingredient-row-btn').addEventListener('click', () => addIngredientRow());
 
     // Fermeture par Escape
@@ -593,161 +595,244 @@ export function showRecipeDetails(recipeId) {
     const laborCostPerServing = calculateLaborCostPerServing(recipe);
     const totalCostPerServing = calculateTotalCostPerServing(recipe);
 
-    // Marge brute badge style
-    let marginDisplay = 'N/A';
-    let marginClass = '';
-    if (salePriceHT > 0) {
-        marginDisplay = formatPercent(grossMargin);
-        if (grossMargin >= 50) marginClass = 'margin-high';
-        else if (grossMargin >= 30) marginClass = 'margin-medium';
-        else marginClass = 'margin-low';
-    }
-
-    // Marge nette badge style
-    let netMarginDisplay = 'N/A';
-    let netMarginClass = '';
-    if (recipe.productionTime && recipe.productionTime > 0) {
-        netMarginDisplay = formatPercent(netMargin);
-        if (netMargin >= 20) netMarginClass = 'margin-high';
-        else if (netMargin >= 10) netMarginClass = 'margin-medium';
-        else netMarginClass = 'margin-low';
-    }
-
-    // Rentabilité horaire badge style
-    let hourlyProfitDisplay = 'N/A';
-    let hourlyProfitClass = '';
-    if (recipe.productionTime && recipe.productionTime > 0) {
-        hourlyProfitDisplay = formatCurrency(hourlyProfit) + '/h';
-        if (hourlyProfit >= 30) hourlyProfitClass = 'profit-high';
-        else if (hourlyProfit >= 15) hourlyProfitClass = 'profit-medium';
-        else hourlyProfitClass = 'profit-low';
-    }
-
-    // Allergènes list
+    // Allergènes
     const allergens = getRecipeAllergenDetails(recipe);
-    const allergensHtml = allergens.length > 0
-        ? allergens.map(a => `<span class="allergen-badge-item" title="${a.description}">${a.icon} ${a.name}</span>`).join(' ')
-        : '<em>Aucun allergène détecté.</em>';
+    const allergensPillsHtml = allergens.length > 0
+        ? allergens.map(a => `
+            <span class="allergen-pill" title="${escapeHTML(a.description)}">
+                <span class="allergen-pill-icon">${a.icon}</span>
+                <span class="allergen-pill-name">${escapeHTML(a.name)}</span>
+            </span>
+          `).join('')
+        : '<span class="allergen-pill allergen-pill-none">✓ Aucun allergène détecté</span>';
 
-    // Ingrédients list table
+    // Ingrédients table rows
     let ingredientsRowsHtml = '';
     if (!recipe.ingredients || recipe.ingredients.length === 0) {
-        ingredientsRowsHtml = `<tr><td colspan="4" class="text-center">Aucun ingrédient dans cette recette.</td></tr>`;
+        ingredientsRowsHtml = `<tr><td colspan="5" class="text-center text-muted" style="padding:2rem;">Aucun ingrédient dans cette recette.</td></tr>`;
     } else {
         recipe.ingredients.forEach(item => {
             const ing = getIngredientById(item.ingredientId);
             if (ing) {
                 const ingPrice = ing.price || 0;
                 const cost = ingPrice * item.quantity;
+                const hasAllergens = ing.allergens && ing.allergens.length > 0;
+                const allergenBadge = hasAllergens
+                    ? `<span style="color:#ef4444;" title="${escapeHTML(ing.allergens.join(', '))}">⚠️ ${escapeHTML(ing.allergens.join(', '))}</span>`
+                    : '<span style="color:#94a3b8;">—</span>';
+
                 ingredientsRowsHtml += `
                     <tr>
-                        <td>${escapeHTML(ing.name)}</td>
+                        <td style="font-weight: 600;">${escapeHTML(ing.name)}</td>
                         <td class="text-center font-mono">${formatQuantityInput(item.quantity, ing.unit)} ${escapeHTML(ing.unit)}</td>
                         <td class="text-right font-mono">${formatCurrency3(ingPrice)} / ${escapeHTML(ing.unit)}</td>
-                        <td class="text-right font-mono">${formatCurrency3(cost)}</td>
+                        <td class="text-right font-mono" style="font-weight: 700;">${formatCurrency3(cost)}</td>
+                        <td class="text-center font-mono">${allergenBadge}</td>
                     </tr>
                 `;
             }
         });
     }
 
+    // Diagnostics / Alerte conviviale
+    let alertClass = 'alert-success';
+    let alertTitle = '🌟 Alerte conviviale';
+    let alertMessage = 'La recette est très rentable et peut être vendue au prix appliqué sans risque de perte.';
+    let statusClass = 'status-high';
+    let statusText = '25% cible atteinte ✅';
+    let progressClass = 'fill-high';
+
+    if (!recipe.productionTime || recipe.productionTime <= 0) {
+        alertClass = '';
+        alertTitle = '💡 Temps de production non renseigné';
+        alertMessage = 'Renseignez le temps de production en modifiant la recette pour débloquer le diagnostic du Prime Cost SAS et la rentabilité horaire.';
+        statusClass = 'status-medium';
+        statusText = 'Temps de production non renseigné';
+        progressClass = 'fill-medium';
+    } else if (netMargin >= 20) {
+        alertClass = 'alert-success';
+        alertTitle = '🌟 Alerte conviviale';
+        alertMessage = `Excellente rentabilité ! La recette couvre tous ses coûts et dégage ${formatCurrency(hourlyProfit)}/h de bénéfice net.`;
+        statusClass = 'status-high';
+        statusText = `${formatPercent(netMargin)} — Marge cible atteinte ✅`;
+        progressClass = 'fill-high';
+    } else if (netMargin >= 0) {
+        alertClass = '';
+        alertTitle = '💡 Diagnostic rentabilité';
+        alertMessage = `La recette est bénéficiaire mais sous la marge cible de 25%. Prix suggéré : ${formatCurrency(suggestedPrice.ht)} HT (${formatCurrency(suggestedPrice.ttc)} TTC).`;
+        statusClass = 'status-medium';
+        statusText = `${formatPercent(netMargin)} — Sous l'objectif de 25% ⚠️`;
+        progressClass = 'fill-medium';
+    } else {
+        alertClass = 'alert-danger';
+        alertTitle = '⚠️ Attention rentabilité';
+        alertMessage = `Cette recette est vendue à perte après déduction de la main d'œuvre et des frais. Prix suggéré : ${formatCurrency(suggestedPrice.ht)} HT.`;
+        statusClass = 'status-low';
+        statusText = `${formatPercent(netMargin)} — Recette déficitaire ❌`;
+        progressClass = 'fill-low';
+    }
+
+    const marginPercentValue = Math.min(100, Math.max(0, netMargin > 0 ? netMargin : 0));
+
     content.innerHTML = `
-        <div class="details-layout">
-            <div class="details-header-info">
+        <div class="recipe-modal-header">
+            <div class="recipe-modal-title-area">
                 <h2>${escapeHTML(recipe.name)}</h2>
-                <div class="details-meta-grid">
-                    <div><strong>Portions:</strong> ${recipe.servings || 0}</div>
-                    <div><strong>Coeff. Multiplicateur:</strong> ${recipe.multiplier || 0}</div>
-                    <div><strong>Temps de production:</strong> ${recipe.productionTime ? formatDuration(recipe.productionTime) : 'N/A'}</div>
+                <div class="recipe-modal-subtitle">
+                    <span class="recipe-meta-pill">🍽️ ${recipe.servings || 1} portion${(recipe.servings || 1) > 1 ? 's' : ''}</span>
+                    <span class="recipe-meta-pill">⏱️ ${recipe.productionTime ? formatDuration(recipe.productionTime) : 'Temps N/A'}</span>
+                    <span class="recipe-meta-pill">📐 Coeff. Multiplicateur : ${recipe.multiplier || 1}</span>
                 </div>
             </div>
+            <button type="button" class="modal-close-icon-btn" id="details-close-x-btn" title="Fermer (Échap)">✕</button>
+        </div>
 
-            <div class="details-grid-kpis">
-                <div class="kpi-card">
-                    <span class="kpi-label">Coût Matière Total</span>
-                    <span class="kpi-value">${formatCurrency3(totalCost)}</span>
+        <!-- 4 Top KPI Banner Cards -->
+        <div class="recipe-kpis-banner">
+            <div class="kpi-banner-card kpi-green">
+                <span class="kpi-banner-label">Coût matière</span>
+                <span class="kpi-banner-value">${formatCurrency3(costPerServing)}</span>
+                <span class="kpi-banner-sub">Total : ${formatCurrency3(totalCost)}</span>
+            </div>
+            <div class="kpi-banner-card kpi-blue">
+                <span class="kpi-banner-label">Coût complet</span>
+                <span class="kpi-banner-value">${formatCurrency3(totalCostPerServing)} / p</span>
+                <span class="kpi-banner-sub">MO & Frais inclus</span>
+            </div>
+            <div class="kpi-banner-card ${netMargin >= 20 ? 'kpi-green' : (netMargin >= 10 ? 'kpi-amber' : 'kpi-red')}">
+                <span class="kpi-banner-label">Marge nette</span>
+                <span class="kpi-banner-value">${recipe.productionTime > 0 ? formatPercent(netMargin) : 'N/A'}</span>
+                <span class="kpi-banner-sub">Marge cible : 25%</span>
+            </div>
+            <div class="kpi-banner-card kpi-purple">
+                <span class="kpi-banner-label">Prix conseillé</span>
+                <span class="kpi-banner-value">${recipe.productionTime > 0 && recipe.servings > 0 ? formatCurrency(suggestedPrice.ht) + ' HT' : 'N/A'}</span>
+                <span class="kpi-banner-sub">${recipe.productionTime > 0 && recipe.servings > 0 ? formatCurrency(suggestedPrice.ttc) + ' TTC' : 'Calculé sur 25% de marge'}</span>
+            </div>
+        </div>
+
+        <!-- Main 2 Column Grid -->
+        <div class="recipe-details-main-grid">
+            <!-- Left Column: Details & Ingredients -->
+            <div class="recipe-details-left-panel">
+                <div class="recipe-panel-card">
+                    <div class="recipe-panel-header">
+                        <span>📋 Détail de la recette</span>
+                        <span style="font-size:0.85rem; font-weight:normal; color:var(--text-light);">${recipe.ingredients ? recipe.ingredients.length : 0} ingrédient(s)</span>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="ingredients-detail-table">
+                            <thead>
+                                <tr>
+                                    <th>Ingrédient</th>
+                                    <th class="text-center">Qté</th>
+                                    <th class="text-right">P.U.</th>
+                                    <th class="text-right">Sous-total</th>
+                                    <th class="text-center">Allergènes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${ingredientsRowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Coût Matière / portion</span>
-                    <span class="kpi-value">${formatCurrency3(costPerServing)}</span>
+
+                <div class="recipe-panel-card">
+                    <div class="recipe-panel-header">
+                        <span>⚠️ Allergènes détectés</span>
+                    </div>
+                    <div class="allergens-pills-container">
+                        ${allergensPillsHtml}
+                    </div>
                 </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Coût Complet / portion</span>
-                    <span class="kpi-value">${formatCurrency3(totalCostPerServing)}</span>
+
+                ${recipe.steps ? `
+                <div class="recipe-panel-card">
+                    <div class="recipe-panel-header">
+                        <span>📝 Étapes de préparation</span>
+                    </div>
+                    <div style="font-size:0.92rem; line-height:1.6; color:var(--text-light); white-space:pre-wrap;">${escapeHTML(recipe.steps)}</div>
                 </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">PV Conseillé HT</span>
-                    <span class="kpi-value">${recipe.productionTime && recipe.servings ? formatCurrency(suggestedPrice.ht) : 'N/A'}</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">PV Conseillé TTC</span>
-                    <span class="kpi-value">${recipe.productionTime && recipe.servings ? formatCurrency(suggestedPrice.ttc) : 'N/A'}</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">PV Réel HT</span>
-                    <span class="kpi-value">${formatCurrency3(salePriceHT)}</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">PV Réel TTC</span>
-                    <span class="kpi-value">${formatCurrency3(salePriceTTC)}</span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Marge Brute</span>
-                    <span class="kpi-value"><span class="margin-badge ${marginClass}">${marginDisplay}</span></span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Marge Nette</span>
-                    <span class="kpi-value"><span class="margin-badge ${netMarginClass}">${netMarginDisplay}</span></span>
-                </div>
-                <div class="kpi-card">
-                    <span class="kpi-label">Profit / Heure</span>
-                    <span class="kpi-value"><span class="profitability-badge ${hourlyProfitClass}">${hourlyProfitDisplay}</span></span>
-                </div>
+                ` : ''}
             </div>
 
-            <div class="details-section-title">Ingrédients de la recette</div>
-            <div class="details-ingredients-list-wrapper">
-                <table class="details-ingredients-table">
-                    <thead>
-                        <tr>
-                            <th>Nom</th>
-                            <th class="text-center">Quantité</th>
-                            <th class="text-right">Prix Unit. HT</th>
-                            <th class="text-right">Coût Partiel</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${ingredientsRowsHtml}
-                    </tbody>
-                </table>
-            </div>
+            <!-- Right Column: Rentabilité & Pricing -->
+            <div class="recipe-details-right-panel">
+                <div class="recipe-panel-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div class="recipe-panel-header">
+                            <span>📈 Rentabilité</span>
+                        </div>
 
-            <div class="details-section-title">Étapes de préparation</div>
-            <div class="details-steps-box">
-                ${recipe.steps ? escapeHTML(recipe.steps).replace(/\n/g, '<br>') : '<em>Aucune étape de préparation renseignée.</em>'}
-            </div>
+                        <div class="rentability-hero-price">
+                            <div class="rentability-price-label">Prix de vente HT</div>
+                            <div class="rentability-price-value-ht">${formatCurrency3(salePriceHT)}</div>
+                            <div class="rentability-price-value-ttc">TTC : ${formatCurrency3(salePriceTTC)}</div>
+                        </div>
 
-            <div class="details-section-title">Allergènes de la recette</div>
-            <div class="details-allergens-box">
-                ${allergensHtml}
+                        <div class="margin-progress-section">
+                            <div class="rentability-price-label" style="display:flex; justify-content:space-between; margin-bottom:0.35rem;">
+                                <span>Marge nette</span>
+                                <span>${recipe.productionTime > 0 ? formatPercent(netMargin) : 'N/A'}</span>
+                            </div>
+                            <div class="margin-progress-bar-bg">
+                                <div class="margin-progress-bar-fill ${progressClass}" style="width: ${marginPercentValue}%;"></div>
+                            </div>
+                            <div class="margin-target-status ${statusClass}" style="margin-top:0.4rem;">${statusText}</div>
+                        </div>
+
+                        <div class="friendly-alert-card ${alertClass}">
+                            <div class="friendly-alert-title">${alertTitle}</div>
+                            <div>${alertMessage}</div>
+                        </div>
+
+                        <div class="rentability-stats-list">
+                            <div class="rentability-stat-item">
+                                <span class="rentability-stat-label">Coût Main d'Œuvre :</span>
+                                <span class="rentability-stat-value">${formatCurrency3(laborCostPerServing)} / p</span>
+                            </div>
+                            <div class="rentability-stat-item">
+                                <span class="rentability-stat-label">Rentabilité Horaire :</span>
+                                <span class="rentability-stat-value" style="color:${hourlyProfit >= 30 ? 'var(--margin-high)' : (hourlyProfit >= 15 ? 'var(--margin-medium)' : 'var(--margin-low)')};">
+                                    ${recipe.productionTime > 0 ? formatCurrency(hourlyProfit) + '/h' : 'N/A'}
+                                </span>
+                            </div>
+                            <div class="rentability-stat-item">
+                                <span class="rentability-stat-label">Marge Brute :</span>
+                                <span class="rentability-stat-value">${formatPercent(grossMargin)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="recipe-actions-row">
+                        <button type="button" id="details-edit-btn" class="button-primary" title="Modifier la recette">✏️ Modifier</button>
+                        <button type="button" id="details-duplicate-btn" class="button-secondary" title="Dupliquer la recette">📋 Dupliquer</button>
+                        <button type="button" id="details-print-btn" class="button-secondary" title="Imprimer la fiche technique">🖨️ Imprimer</button>
+                        <button type="button" id="details-delete-btn" class="button-danger" title="Supprimer la recette">🗑️</button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
 
-    // Configurer les boutons d'actions
-    document.getElementById('details-duplicate-btn').onclick = () => {
-        modal.style.display = 'none';
-        duplicateRecipe(recipeId);
-    };
+    // Event listeners
+    const closeX = document.getElementById('details-close-x-btn');
+    if (closeX) closeX.onclick = () => { modal.style.display = 'none'; };
 
-    document.getElementById('details-edit-btn').onclick = () => {
-        modal.style.display = 'none';
-        showRecipeModal(recipeId);
-    };
+    const editBtn = document.getElementById('details-edit-btn');
+    if (editBtn) editBtn.onclick = () => { modal.style.display = 'none'; showRecipeModal(recipeId); };
 
-    document.getElementById('details-delete-btn').onclick = () => {
+    const dupBtn = document.getElementById('details-duplicate-btn');
+    if (dupBtn) dupBtn.onclick = () => { modal.style.display = 'none'; duplicateRecipe(recipeId); };
+
+    const printBtn = document.getElementById('details-print-btn');
+    if (printBtn) printBtn.onclick = () => { window.print(); };
+
+    const deleteBtn = document.getElementById('details-delete-btn');
+    if (deleteBtn) deleteBtn.onclick = () => {
+        modal.style.display = 'none';
         deleteRecipe(recipeId);
-        modal.style.display = 'none';
     };
 
     modal.style.display = 'flex';

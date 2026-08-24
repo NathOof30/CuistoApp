@@ -1007,152 +1007,466 @@ body.dark-mode tbody tr:nth-child(even) {
     font-size: 1.1rem;
 }
 
-/* --- Details Modal Layout --- */
-.modal-content.modal-large {
-    max-width: 900px;
+/* --- Details & Edit Modal Layout (Modern SaaS Grid Inspired by aperçu_recette.png) --- */
+.modal-content.modal-extra-large {
+    max-width: 1150px;
     width: 95%;
+    border-radius: var(--border-radius-lg);
+    padding: 2rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    background-color: var(--card-background);
 }
 
-.details-layout {
+.recipe-modal-header {
     display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    max-height: 70vh;
-    overflow-y: auto;
-    padding-right: 0.5rem;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
 }
 
-.details-header-info {
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 1rem;
-    flex-shrink: 0;
-}
-
-.details-header-info h2 {
-    font-size: 1.75rem;
-    font-weight: 700;
+.recipe-modal-title-area h2 {
+    font-size: 1.85rem;
+    font-weight: 800;
     color: var(--text-color);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-headings);
+    letter-spacing: -0.02em;
 }
 
-.details-meta-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1rem;
-    font-size: 0.95rem;
+.recipe-modal-subtitle {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    font-size: 0.88rem;
     color: var(--text-light);
 }
 
-.details-grid-kpis {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1rem;
+.recipe-meta-pill {
+    background-color: var(--border-light);
+    border: 1px solid var(--border-color);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 600;
+}
+
+.modal-close-icon-btn {
+    background: var(--border-light);
+    border: 1px solid var(--border-color);
+    color: var(--text-light);
+    font-size: 1.1rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
     flex-shrink: 0;
 }
 
-.kpi-card {
-    background-color: var(--border-light);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-sm);
-    padding: 1rem 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    transition: var(--transition);
+.modal-close-icon-btn:hover {
+    background-color: var(--margin-low-bg);
+    color: var(--margin-low);
+    border-color: rgba(220, 38, 38, 0.3);
+    transform: rotate(90deg);
 }
 
-.kpi-card:hover {
-    transform: translateY(-2px);
+/* --- Top KPI Summary Grid (4 Banner Cards) --- */
+.recipe-kpis-banner {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.75rem;
+}
+
+.kpi-banner-card {
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    padding: 1.15rem 1.25rem;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    transition: var(--transition);
     box-shadow: var(--shadow-sm);
 }
 
-.kpi-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    color: var(--text-muted);
+.kpi-banner-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.kpi-banner-card.kpi-green {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.kpi-banner-card.kpi-blue {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.kpi-banner-card.kpi-amber {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.kpi-banner-card.kpi-red {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.kpi-banner-card.kpi-purple {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(139, 92, 246, 0.02) 100%);
+    border-color: rgba(139, 92, 246, 0.3);
+}
+
+.kpi-banner-label {
+    font-size: 0.78rem;
     font-weight: 600;
+    text-transform: uppercase;
     letter-spacing: 0.05em;
+    color: var(--text-light);
 }
 
-.kpi-value {
-    font-size: 1.25rem;
-    font-weight: 750;
+.kpi-banner-value {
+    font-size: 1.45rem;
+    font-weight: 800;
     color: var(--text-color);
+    font-family: var(--font-headings);
+    line-height: 1.2;
 }
 
-.details-section-title {
-    font-size: 1.1rem;
+.kpi-banner-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* --- Main 2-Column Grid Layout --- */
+.recipe-details-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 1.5rem;
+    align-items: stretch;
+}
+
+.recipe-panel-card {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: 1.35rem 1.5rem;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 1.25rem;
+}
+
+.recipe-panel-card:last-child {
+    margin-bottom: 0;
+}
+
+.recipe-panel-header {
+    font-size: 1.15rem;
     font-weight: 700;
     color: var(--text-color);
-    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-headings);
+    border-bottom: 1px solid var(--border-light);
     padding-bottom: 0.5rem;
-    margin-top: 0.5rem;
-    flex-shrink: 0;
 }
 
-.details-ingredients-list-wrapper {
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-sm);
-    overflow: hidden;
-    flex-shrink: 0;
-}
-
-.details-ingredients-table {
+/* --- Ingredients Detail Table --- */
+.ingredients-detail-table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
+    border-collapse: collapse;
     font-size: 0.9rem;
 }
 
-.details-ingredients-table th {
-    position: static;
-    background-color: var(--border-light);
-    padding: 0.625rem 1rem;
-    font-size: 0.75rem;
+.ingredients-detail-table th {
+    background-color: transparent;
+    border-bottom: 2px solid var(--border-color);
+    padding: 0.65rem 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+    font-weight: 700;
     color: var(--text-light);
-    box-shadow: none;
-    border-bottom: 1px solid var(--border-color);
+    letter-spacing: 0.05em;
 }
 
-.details-ingredients-table td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-color);
+.ingredients-detail-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: middle;
 }
 
-.details-ingredients-table tr:last-child td {
-    border-bottom: none;
+.ingredients-detail-table tr:hover td {
+    background-color: rgba(99, 102, 241, 0.02);
 }
 
-.details-steps-box {
+/* --- Allergens Container in Details --- */
+.allergens-pills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 0.25rem;
+}
+
+.allergen-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
     background-color: var(--border-light);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    transition: var(--transition);
+}
+
+.allergen-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.allergen-pill-none {
+    background-color: var(--success-bg);
+    color: var(--success-color);
+    border-color: rgba(16, 185, 129, 0.25);
+}
+
+/* --- Right Panel (Rentabilité & Tarification) --- */
+.rentability-hero-price {
+    margin-bottom: 1.25rem;
+    background: var(--border-light);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-sm);
     padding: 1rem 1.25rem;
-    font-size: 0.95rem;
-    line-height: 1.6;
+    text-align: center;
+}
+
+.rentability-price-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
     color: var(--text-light);
-    flex-shrink: 0;
+    margin-bottom: 0.2rem;
+    letter-spacing: 0.05em;
 }
 
-.details-allergens-box {
+.rentability-price-value-ht {
+    font-size: 2.1rem;
+    font-weight: 800;
+    color: var(--margin-high);
+    font-family: var(--font-headings);
+    line-height: 1.1;
+}
+
+.rentability-price-value-ttc {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-top: 0.35rem;
+}
+
+/* Net Margin Progress Bar */
+.margin-progress-section {
+    margin: 1.25rem 0;
+}
+
+.margin-progress-bar-bg {
+    width: 100%;
+    height: 12px;
+    background-color: var(--border-color);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.margin-progress-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.5s ease-out;
+}
+
+.margin-progress-bar-fill.fill-high { background-color: #10b981; }
+.margin-progress-bar-fill.fill-medium { background-color: #f59e0b; }
+.margin-progress-bar-fill.fill-low { background-color: #ef4444; }
+
+.margin-target-status {
+    font-size: 0.85rem;
+    font-weight: 700;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    flex-shrink: 0;
+    align-items: center;
+    gap: 0.35rem;
 }
 
-.allergen-badge-item {
-    background-color: var(--border-light);
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
-    padding: 0.35rem 0.85rem;
+.status-high { color: var(--margin-high); }
+.status-medium { color: var(--margin-medium); }
+.status-low { color: var(--margin-low); }
+
+/* Friendly Alert Card */
+.friendly-alert-card {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: var(--border-radius-sm);
+    padding: 1rem;
+    margin: 1.25rem 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: #9a3412;
+}
+
+body.dark-mode .friendly-alert-card {
+    background: rgba(249, 115, 22, 0.12);
+    border-color: rgba(249, 115, 22, 0.3);
+    color: #fdba74;
+}
+
+.friendly-alert-card.alert-success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+body.dark-mode .friendly-alert-card.alert-success {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #6ee7b7;
+}
+
+.friendly-alert-card.alert-danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+body.dark-mode .friendly-alert-card.alert-danger {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+.friendly-alert-title {
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    font-size: 0.95rem;
+}
+
+/* Complementary Stats List */
+.rentability-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+    margin-top: 1rem;
+    font-size: 0.88rem;
+}
+
+.rentability-stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.rentability-stat-label {
+    color: var(--text-light);
+}
+
+.rentability-stat-value {
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+/* Actions in Right Panel */
+.recipe-actions-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.recipe-actions-row button {
+    flex: 1;
+    min-width: 90px;
+    padding: 0.6rem 0.75rem;
     font-size: 0.85rem;
     font-weight: 600;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.35rem;
+}
+
+/* --- Styles pour l'Aperçu des Allergènes dans le Formulaire --- */
+.allergen-preview-container {
+    padding: 0.4rem 0.2rem;
+}
+
+.no-allergen-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #10b981;
+    font-weight: 600;
+    font-size: 0.85rem;
+    background: rgba(16, 185, 129, 0.08);
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.allergen-warning {
+    color: var(--color-warning);
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.4rem;
+}
+
+.allergen-preview-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.3rem;
+}
+
+.allergen-preview-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.65rem;
+    background-color: rgba(234, 88, 12, 0.1);
+    color: #c2410c;
+    border: 1px solid rgba(234, 88, 12, 0.25);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+[data-theme="dark"] .allergen-preview-item {
+    background-color: rgba(234, 88, 12, 0.2);
+    color: #fb923c;
+    border-color: rgba(251, 146, 60, 0.3);
+}
+
+/* --- Responsive Media Query for Modals --- */
+@media (max-width: 900px) {
+    .recipe-kpis-banner {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .recipe-details-main-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* --- Print Styles --- */

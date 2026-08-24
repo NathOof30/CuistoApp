@@ -1,6 +1,6 @@
 // === CONFIGURATION RENTABILITÉ GLOBALE (Modifiable par l'utilisateur) ===
 let VAT_RATE = 0.10;
-let CHARGED_HOURLY_RATE = 27.30;
+let CHARGED_HOURLY_RATE = 22.00;
 let OVERHEAD_RATE = 0.10;
 let TARGET_NET_MARGIN = 0.25;
 
@@ -9,7 +9,7 @@ function updateGlobalSettings() {
   VAT_RATE = vatVal !== null ? parseFloat(vatVal) / 100 : 0.10;
 
   const hrVal = localStorage.getItem('settings-charged-hourly-rate');
-  CHARGED_HOURLY_RATE = hrVal !== null ? parseFloat(hrVal) : 27.30;
+  CHARGED_HOURLY_RATE = hrVal !== null ? parseFloat(hrVal) : 22.00;
 
   const ohVal = localStorage.getItem('settings-overhead-rate');
   OVERHEAD_RATE = ohVal !== null ? parseFloat(ohVal) / 100 : 0.10;
@@ -148,7 +148,7 @@ function calculateRecipeCost(recipe) {
 
 /**
  * Calcule le coût main d'œuvre total pour une recette
- * Basé sur le coût horaire chargé SAS (27.30 €/h)
+ * Basé sur le coût horaire chargé SAS (25.00 €/h)
  * @param {Object} recipe - La recette
  * @returns {number} - Coût main d'œuvre total
  */
