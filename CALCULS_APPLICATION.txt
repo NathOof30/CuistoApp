@@ -39,7 +39,7 @@ depuis le formulaire du Tableau de bord (enregistrés dans le localStorage) :
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ CHARGED_HOURLY_RATE (Coût horaire chargé SAS)                               │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ Valeur : 25.00 €/h                                                          │
+│ Valeur : 22.00 €/h                                                          │
 │ Description : Coût horaire chargé supporté par l'entreprise pour la         │
 │               rémunération de la main d'œuvre en cuisine.                   │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -126,7 +126,7 @@ standardisée du Prime Cost.
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE :                                                                   │
-│   Coût MO brut = (Temps production en minutes ÷ 60) × 25.00                 │
+│   Coût MO brut = (Temps production en minutes ÷ 60) × 22.00                 │
 │                                                                             │
 │ DESCRIPTION :                                                               │
 │   Calcule le coût horaire chargé SAS pour le temps passé en cuisine.        │
@@ -183,9 +183,9 @@ standardisée du Prime Cost.
 │                                                                             │
 │ ANALYSE DES RÉSULTATS :                                                     │
 │   • >= 0 € : Le traiteur a payé ses matières, ses frais de fonctionnement,  │
-│              s'est versé son salaire net de 15 €/h et l'entreprise dégage   │
+│              s'est versé son salaire net de ~13 €/h et l'entreprise dégage  │
 │              un bénéfice supplémentaire.                                    │
-│   • < 0 €  : Le traiteur travaille à un salaire net horaire inférieur à 15 €.│
+│   • < 0 €  : Le traiteur travaille à un salaire net horaire inférieur au taux.│
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -253,21 +253,21 @@ standardisée du Prime Cost.
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 2 : COÛT MAIN D'ŒUVRE (MO / LABOR COST)                               │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   MO total brut = (20 ÷ 60) × 25.00 = 8.333 €        → AFFICHÉ : 8.333 €    │
-│   MO unitaire brut = 8.333 ÷ 4 = 2.083 €             → AFFICHÉ : 2.10 €     │
+│   MO total brut = (20 ÷ 60) × 22.00 = 7.333 €        → AFFICHÉ : 7.333 €    │
+│   MO unitaire brut = 7.333 ÷ 4 = 1.833 €             → AFFICHÉ : 1.90 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 3 : PRIME COST & FRAIS GÉNÉRAUX (FG / OVERHEAD)                       │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Prime Cost total = 19.0518 + 8.3333 = 27.3851 €                           │
-│   FG total brut = 27.3851 × 0.10 = 2.7385 €          → AFFICHÉ : 2.74 €     │
-│   FG unitaire brut = 2.7385 ÷ 4 = 0.6846 €                                  │
+│   Prime Cost total = 19.0518 + 7.3333 = 26.3851 €                           │
+│   FG total brut = 26.3851 × 0.10 = 2.6385 €          → AFFICHÉ : 2.64 €     │
+│   FG unitaire brut = 2.6385 ÷ 4 = 0.6596 €                                  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 4 : COÛT COMPLET (FULL COST)                                          │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Coût Complet total = 27.3851 + 2.7385 = 30.1236 €                         │
-│   Coût Complet unitaire brut = 30.1236 ÷ 4 = 7.5309 € → AFFICHÉ : 7.60 €    │
+│   Coût Complet total = 26.3851 + 2.6385 = 29.0236 €                         │
+│   Coût Complet unitaire brut = 29.0236 ÷ 4 = 7.2559 € → AFFICHÉ : 7.30 €    │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 5 : PRIX ACTUEL ET MARGES                                             │
@@ -276,22 +276,22 @@ standardisée du Prime Cost.
 │   PV TTC actuel = 16.6703 × 1.10 = 18.3374 €         → AFFICHÉ : 18.40 €    │
 │   Marge Brute = ((16.6703 - 4.76295) ÷ 16.6703) × 100                       │
 │               = 71.428%                              → AFFICHÉE : 71.4% ✅  │
-│   Marge Nette réelle = ((16.6703 - 7.5309) ÷ 16.6703) × 100                 │
-│                      = 54.824%                       → AFFICHÉE : 54.8% ✅  │
+│   Marge Nette réelle = ((16.6703 - 7.2559) ÷ 16.6703) × 100                 │
+│                      = 56.474%                       → AFFICHÉE : 56.5% ✅  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 6 : RENTABILITÉ HORAIRE COMPLÉMENTAIRE                                │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Profit total brut = (16.6703 - 7.5309) × 4 = 36.5576 €                    │
-│   Profit/heure brut = 36.5576 ÷ (20 ÷ 60)                                   │
-│                     = 109.673 €/h                    → AFFICHÉ : 109.70 €/h │
-│   (Interprétation : Salaires et frais payés, l'activité dégage 109.70 €/h net)│
+│   Profit total brut = (16.6703 - 7.2559) × 4 = 37.6576 €                    │
+│   Profit/heure brut = 37.6576 ÷ (20 ÷ 60)                                   │
+│                     = 112.973 €/h                    → AFFICHÉ : 113.00 €/h │
+│   (Interprétation : Salaires et frais payés, l'activité dégage 113.00 €/h net)│
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 7 : PRIX SUGGÉRÉ (Marge Nette Cible 25%)                              │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   PV suggéré HT unitaire = 7.5309 ÷ 0.75 = 10.0412 €  → AFFICHÉ : 10.10 €   │
-│   PV suggéré TTC unitaire = 10.0412 × 1.10 = 11.0453 € → AFFICHÉ : 11.10 €  │
+│   PV suggéré HT unitaire = 7.2559 ÷ 0.75 = 9.6745 €   → AFFICHÉ : 9.70 €    │
+│   PV suggéré TTC unitaire = 9.6745 × 1.10 = 10.6420 € → AFFICHÉ : 10.70 €   │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 8 : BILAN ALLERGÈNES                                                  │
@@ -323,40 +323,40 @@ standardisée du Prime Cost.
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 2 : COÛT MAIN D'ŒUVRE (MO)                                            │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   MO total brut = (45 ÷ 60) × 25.00 = 18.75 €        → AFFICHÉ : 18.75 €    │
-│   MO unitaire brut = 18.75 ÷ 4 = 4.6875 €                                   │
+│   MO total brut = (45 ÷ 60) × 22.00 = 16.50 €        → AFFICHÉ : 16.50 €    │
+│   MO unitaire brut = 16.50 ÷ 4 = 4.125 €                                    │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 3 : PRIME COST & FRAIS GÉNÉRAUX (FG)                                  │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Prime Cost = 3.335 + 18.75 = 22.085 €                                     │
-│   FG = 22.085 × 0.10 = 2.2085 €                      → AFFICHÉ : 2.21 €     │
+│   Prime Cost = 3.335 + 16.50 = 19.835 €                                     │
+│   FG = 19.835 × 0.10 = 1.9835 €                      → AFFICHÉ : 1.99 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 4 : COÛT COMPLET                                                      │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Coût Complet total = 22.085 + 2.2085 = 24.2935 €                          │
-│   Coût Complet unitaire brut = 24.2935 ÷ 4 = 6.073375 € → AFFICHÉ : 6.10 €  │
+│   Coût Complet total = 19.835 + 1.9835 = 21.8185 €                          │
+│   Coût Complet unitaire brut = 21.8185 ÷ 4 = 5.4546 € → AFFICHÉ : 5.50 €    │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 5 : PRIX ACTUEL ET MARGE                                              │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   PV HT actuel = (3.335 ÷ 4) × 4.0 = 3.335 €         → AFFICHÉ : 3.40 €     │
 │   PV TTC actuel = 3.335 × 1.10 = 3.6685 €            → AFFICHÉ : 3.70 €     │
-│   Marge Nette réelle = ((3.335 - 6.073375) ÷ 3.335) × 100                   │
-│                      = -82.11%                       → AFFICHÉE : -82.1% ⚠️ │
+│   Marge Nette réelle = ((3.335 - 5.4546) ÷ 3.335) × 100                     │
+│                      = -63.557%                       → AFFICHÉE : -63.6% ⚠️ │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 6 : RENTABILITÉ HORAIRE COMPLÉMENTAIRE                                │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   Profit total brut = (3.335 - 6.54775) × 4 = -12.851 €                     │
-│   Profit/heure brut = -12.851 ÷ 0.75 = -17.13 €/h    → AFFICHÉ : -17.10 €/h │
+│   Profit total brut = (3.335 - 5.4546) × 4 = -8.4785 €                      │
+│   Profit/heure brut = -8.4785 ÷ 0.75 = -11.304 €/h   → AFFICHÉ : -11.30 €/h │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 7 : PRIX SUGGÉRÉ (Marge 25%)                                          │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   PV suggéré HT unitaire = 6.54775 ÷ 0.75 = 8.730333 € → AFFICHÉ : 8.80 €   │
-│   PV suggéré TTC unitaire = 8.730333 × 1.10 = 9.603366 € → AFFICHÉ : 9.70 € │
+│   PV suggéré HT unitaire = 5.4546 ÷ 0.75 = 7.2728 €  → AFFICHÉ : 7.30 €     │
+│   PV suggéré TTC unitaire = 7.2728 × 1.10 = 8.0001 € → AFFICHÉ : 8.10 €     │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
