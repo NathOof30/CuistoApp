@@ -28,19 +28,31 @@ function addRecipeSelector() {
 
     const selectorHTML = `
         <div class="recipe-selector-row" id="${selectorId}">
-            <select class="recipe-select">
-                <option value="">Choisir une recette...</option>
-                ${[...recipes].sort((a, b) => a.name.localeCompare(b.name)).map(r => `<option value="${r.id}">${escapeHTML(r.name)}</option>`).join('')}
-            </select>
-            <input type="number" class="portions-input" placeholder="Nb. portions" min="1">
-            <button type="button" class="delete-selector-btn button-secondary">🗑️</button>
+            <div class="selector-field selector-field-main">
+                <label class="field-label">Recette à confectionner</label>
+                <select class="recipe-select">
+                    <option value="">Choisir une recette dans la mercuriale...</option>
+                    ${[...recipes].sort((a, b) => a.name.localeCompare(b.name)).map(r => `<option value="${r.id}">${escapeHTML(r.name)} (${r.servings || 1} portion${(r.servings || 1) > 1 ? 's' : ''})</option>`).join('')}
+                </select>
+            </div>
+            <div class="selector-field selector-field-qty">
+                <label class="field-label">Nombre de portions (N)</label>
+                <input type="number" class="portions-input" placeholder="Ex: 1" min="1" value="1">
+            </div>
+            <div class="selector-field selector-field-btn">
+                <button type="button" class="delete-selector-btn button-danger-subtle" title="Supprimer cette ligne">🗑️</button>
+            </div>
         </div>
     `;
     container.insertAdjacentHTML('beforeend', selectorHTML);
 
     const newSelector = document.getElementById(selectorId);
     newSelector.querySelector('.delete-selector-btn').addEventListener('click', () => {
-        newSelector.remove();
+        if (container.children.length > 1) {
+            newSelector.remove();
+        } else {
+            showToast('Vous devez conserver au moins une ligne de sélection.', 'warning');
+        }
     });
 }
 
@@ -148,20 +160,23 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
     const detailedContainer = document.getElementById('detailed-breakdown');
     const summaryTbody = document.querySelector('#summary-table tbody');
 
-    detailedContainer.innerHTML = '<h3>Détail par recette</h3>';
+    detailedContainer.innerHTML = '<h3 class="section-title">📖 Détail par Recette</h3>';
     detailed.forEach(recipe => {
         let tableHTML = `
             <div class="card bon-recipe-card">
-                <h4>${escapeHTML(recipe.name)}</h4>
+                <div class="recipe-card-header">
+                    <h4 class="recipe-card-title">🍽️ ${escapeHTML(recipe.name)}</h4>
+                    <span class="badge-recipe-cost">Coût Recette : ${formatCurrency(recipe.totalCost)}</span>
+                </div>
                 <div class="table-container">
-                    <table>
+                    <table class="bon-table">
                         <thead>
                             <tr>
-                                <th>Intitulé</th>
-                                <th>Quantité</th>
-                                <th>Unité</th>
-                                <th>Prix unitaire HT</th>
-                                <th>Coût total HT</th>
+                                <th style="width: 40%;">Intitulé ingrédient</th>
+                                <th style="width: 20%; text-align: right;">Quantité</th>
+                                <th style="width: 15%; text-align: center;">Unité</th>
+                                <th style="width: 20%; text-align: right;">Prix unitaire HT</th>
+                                <th style="width: 20%; text-align: right;">Coût total HT</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -169,11 +184,11 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
         recipe.ingredients.forEach(ing => {
             tableHTML += `
                 <tr>
-                    <td data-label="Intitulé">${escapeHTML(ing.name)}</td>
-                    <td data-label="Quantité">${formatQuantity(ing.quantity, ing.unit)}</td>
-                    <td data-label="Unité">${escapeHTML(ing.unit)}</td>
-                    <td data-label="Prix unitaire HT">${formatCurrency3(ing.unitPrice)}</td>
-                    <td data-label="Coût total HT">${formatCurrency(ing.totalCost)}</td>
+                    <td data-label="Intitulé"><strong>${escapeHTML(ing.name)}</strong></td>
+                    <td data-label="Quantité" style="text-align: right;"><span class="badge-qty">${formatQuantity(ing.quantity, ing.unit)}</span></td>
+                    <td data-label="Unité" style="text-align: center;"><span class="badge-unit">${escapeHTML(ing.unit)}</span></td>
+                    <td data-label="Prix unitaire HT" style="text-align: right;" class="tabular-price">${formatCurrency3(ing.unitPrice)}</td>
+                    <td data-label="Coût total HT" style="text-align: right;" class="tabular-price-bold">${formatCurrency(ing.totalCost)}</td>
                 </tr>
             `;
         });
@@ -181,8 +196,8 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="4" style="text-align:right; font-weight:bold;">Total Recette:</td>
-                                <td style="font-weight:bold;">${formatCurrency(recipe.totalCost)}</td>
+                                <td colspan="4" style="text-align:right; font-weight:bold;">Coût Ingrédients Total Recette :</td>
+                                <td style="text-align:right; font-weight:800;" class="tabular-price-bold">${formatCurrency(recipe.totalCost)}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -196,21 +211,36 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
     summary.sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
         const row = `
             <tr>
-                <td data-label="Denrée">${escapeHTML(item.name)}</td>
-                <td data-label="Quantité">${formatQuantity(item.quantity, item.unit)}</td>
-                <td data-label="Unité">${escapeHTML(item.unit)}</td>
-                <td data-label="Coût HT">${formatCurrency(item.totalCost)}</td>
+                <td data-label="Denrée"><strong>${escapeHTML(item.name)}</strong></td>
+                <td data-label="Quantité" style="text-align: right;"><span class="badge-qty">${formatQuantity(item.quantity, item.unit)}</span></td>
+                <td data-label="Unité" style="text-align: center;"><span class="badge-unit">${escapeHTML(item.unit)}</span></td>
+                <td data-label="Coût HT" style="text-align: right;" class="tabular-price-bold">${formatCurrency(item.totalCost)}</td>
             </tr>
         `;
         summaryTbody.insertAdjacentHTML('beforeend', row);
     });
 
+    // Mettre à jour les totaux globaux et le devis
+    const quoteIngredientsCost = document.getElementById('quote-ingredients-cost');
+    if (quoteIngredientsCost) quoteIngredientsCost.textContent = formatCurrency(globalTotalCost);
+
     document.getElementById('global-total-cost').textContent = formatCurrency(globalTotalCost);
 
-    // Afficher le devis de vente
     document.getElementById('total-sale-price-ht').textContent = formatCurrency(totalSalePriceHT);
     document.getElementById('total-sale-price-ttc').textContent = formatCurrency(totalSalePriceTTC);
-    document.getElementById('total-gross-margin').textContent = formatCurrency(totalSalePriceHT - globalTotalCost);
+
+    const grossMargin = totalSalePriceHT - globalTotalCost;
+    const marginPercent = totalSalePriceHT > 0 ? ((grossMargin / totalSalePriceHT) * 100).toFixed(1) : 0;
+
+    const grossMarginElem = document.getElementById('total-gross-margin');
+    if (grossMarginElem) {
+        grossMarginElem.innerHTML = `${formatCurrency(grossMargin)} <small class="margin-percent-pill">(${marginPercent}%)</small>`;
+    }
+
+    const resultsCountBadge = document.getElementById('results-count-badge');
+    if (resultsCountBadge) {
+        resultsCountBadge.textContent = `${summary.length} denrée${summary.length > 1 ? 's' : ''} • ${detailed.length} recette${detailed.length > 1 ? 's' : ''}`;
+    }
 
     document.getElementById('bon-economat-results').classList.remove('hidden');
 }
