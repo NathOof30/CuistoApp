@@ -41,8 +41,8 @@ function initSettingsForm() {
 
     // Pré-remplir avec les valeurs courantes (on multiplie les taux par 100 pour l'affichage en %)
     if (hourlyRateInput) hourlyRateInput.value = CHARGED_HOURLY_RATE.toFixed(2);
-    if (overheadInput) overheadInput.value = Math.round(OVERHEAD_RATE * 100);
-    if (targetMarginInput) targetMarginInput.value = Math.round(TARGET_NET_MARGIN * 100);
+    if (overheadInput) overheadInput.value = (OVERHEAD_RATE * 100).toFixed(1);
+    if (targetMarginInput) targetMarginInput.value = (TARGET_NET_MARGIN * 100).toFixed(1);
     if (vatInput) vatInput.value = (VAT_RATE * 100).toFixed(1);
 
     form.addEventListener('submit', (e) => {
