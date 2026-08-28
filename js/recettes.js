@@ -838,17 +838,19 @@ export function showRecipeDetails(recipeId) {
 
     const weightTotalRow = `
         <tr style="background: var(--bg-secondary, #f8fafc); border-top: 2px solid var(--border-color, #e2e8f0);">
-            <td colspan="2" style="font-weight:700; padding-top:0.6rem;">⚖️ Total recette</td>
-            <td class="text-right font-mono" style="font-weight:700; color: var(--text-light);">
-                ${totalWeightKg > 0 ? `${(totalWeightKg).toLocaleString('fr-FR', {minimumFractionDigits:3, maximumFractionDigits:3})} kg` : '—'}
+            <td style="font-weight:700; padding-top:0.6rem; padding-bottom:0.6rem;">⚖️ Total recette</td>
+            <td class="text-center font-mono" style="font-weight:700; padding-top:0.6rem; padding-bottom:0.6rem;">
+                ${totalWeightKg > 0 ? `${totalWeightKg.toLocaleString('fr-FR', {minimumFractionDigits:3, maximumFractionDigits:3})} kg` : '—'}
             </td>
-            <td class="text-right font-mono" style="font-weight:700;">
+            <td class="text-right font-mono" style="color: var(--text-light); padding-top:0.6rem; padding-bottom:0.6rem;">—</td>
+            <td class="text-right font-mono" style="font-weight:700; padding-top:0.6rem; padding-bottom:0.6rem;">
                 ${pricePerKg !== null ? `<span title="Prix au kg = Food Cost total ÷ Poids total">${formatCurrency(pricePerKg)}<small style="font-weight:normal; color:var(--text-light);"> / kg</small></span>` : '<span style="color:var(--text-light);">—</span>'}
             </td>
-            <td></td>
+            <td style="padding-top:0.6rem; padding-bottom:0.6rem;"></td>
         </tr>
-        ${(excludedCount > 0 || volumeApproxUsed) ? `<tr><td colspan="5" style="padding-top:0.2rem; padding-bottom:0.5rem;">${weightFootnote}</td></tr>` : ''}
+        ${(excludedCount > 0 || volumeApproxUsed) ? `<tr><td colspan="5" style="padding-top:0.2rem; padding-bottom:0.6rem;">${weightFootnote}</td></tr>` : ''}
     `;
+
 
     ingredientsRowsHtml += weightTotalRow;
 
