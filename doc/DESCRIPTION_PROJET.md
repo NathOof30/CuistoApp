@@ -46,7 +46,7 @@ L'application est divisée en 4 modules principaux (onglets).
 - **Statistiques clés en temps réel :** Nombre total de recettes, nombre d'ingrédients en mercuriale, marge nette moyenne, recette top rentable, nombre d'ingrédients sans prix et indicateur de santé de la mercuriale.
 - **Actions rapides :** Raccourcis pour ajouter rapidement une recette, ajouter une denrée ou générer un bon d'économat.
 - **Paramètres de Simulation Globaux (Modifiables en direct) :**
-    - Coût horaire chargé du gérant (€/h) (défaut : 25.00 €/h).
+    - Coût horaire chargé du gérant (€/h) (défaut : 22.00 €/h).
     - Frais généraux (%) (défaut : 10%).
     - Marge nette cible (%) (défaut : 25%).
     - Taux de TVA (%) (défaut : 10%).
@@ -70,7 +70,7 @@ Cœur du système permettant d'élaborer les plats et de calculer leur rentabili
 - **Assemblage (Nomenclature) :** Ajout dynamique de lignes d'ingrédients puisés dans la Mercuriale avec quantité et unité associée.
 - **Calculs et KPIs en temps réel :**
     - Coût matière direct (Food Cost) total et par portion.
-    - Coût main d'œuvre (Labor Cost) basé sur le temps de production × coût horaire chargé SAS (25.00 €/h).
+    - Coût main d'œuvre (Labor Cost) basé sur le temps de production × coût horaire chargé SAS (22.00 €/h).
     - Prime Cost (Coût matière + Main d'œuvre).
     - Frais généraux (Overhead, 10% du Prime Cost).
     - Coût complet par portion (Full Cost).
@@ -138,7 +138,7 @@ Structure arborescente intégrant une matrice d'ingrédients (Composition).
 
 ### ⚙️ Variables de Configuration et Paramètres Globaux
 L'application possède des paramètres par défaut modifiables en temps réel via l'interface du Tableau de bord (stockés dans `localStorage`) :
-- `CHARGED_HOURLY_RATE = 25.00` : Coût horaire chargé de la main d'œuvre en cuisine (25.00 €/h par défaut).
+- `CHARGED_HOURLY_RATE = 22.00` : Coût horaire chargé de la main d'œuvre en cuisine (22.00 €/h par défaut).
 - `OVERHEAD_RATE = 0.10` : Frais généraux évalués à 10% du Prime Cost (couvre l'énergie, l'eau, l'usure du matériel).
 - `TARGET_NET_MARGIN = 0.25` : Marge nette cible par défaut de l'entreprise (25%).
 - `VAT_RATE = 0.10` : Taux de TVA appliqué (10%).
