@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tableau de Bord - Gestion Culinaire</title>
     <link rel="stylesheet" href="style.css">
-    
 </head>
 <body>
     <header>
@@ -22,114 +21,128 @@
         <div class="page-header">
             <div>
                 <h2>📊 Tableau de Bord Culinaire</h2>
-                <p class="page-subtitle">Aperçu global des performances financières, statistiques et santé de votre mercuriale.</p>
+                <p class="page-subtitle">Vue d'ensemble de votre rentabilité, top recettes et diagnostics santé.</p>
             </div>
         </div>
 
-        <div class="dashboard-grid">
-            <!-- Section de bienvenue et statistiques -->
-            <div class="card card-welcome">
-                <h2>Bienvenue Chef ! 👋</h2>
-                <p>Retrouvez ici la synthèse en temps réel de votre activité culinaire et financière.</p>
+        <!-- Bandeau KPI — 4 indicateurs clés -->
+        <div class="db-kpi-banner">
+            <div class="db-kpi-card db-kpi-neutral">
+                <span class="db-kpi-icon">🍳</span>
+                <span class="db-kpi-value" id="kpi-total-recipes">—</span>
+                <span class="db-kpi-label">Recettes</span>
+                <span class="db-kpi-sub" id="kpi-total-sub">—</span>
             </div>
+            <div class="db-kpi-card db-kpi-success">
+                <span class="db-kpi-icon">✅</span>
+                <span class="db-kpi-value" id="kpi-profitable-recipes">—</span>
+                <span class="db-kpi-label">Rentables (≥ cible)</span>
+                <span class="db-kpi-sub" id="kpi-profitable-sub">—</span>
+            </div>
+            <div class="db-kpi-card db-kpi-neutral" id="kpi-deficit-card">
+                <span class="db-kpi-icon">⚠️</span>
+                <span class="db-kpi-value" id="kpi-deficit-recipes">—</span>
+                <span class="db-kpi-label">Déficitaires</span>
+                <span class="db-kpi-sub" id="kpi-deficit-sub">marge nette &lt; 0%</span>
+            </div>
+            <div class="db-kpi-card db-kpi-primary">
+                <span class="db-kpi-icon">📈</span>
+                <span class="db-kpi-value" id="kpi-avg-margin">—</span>
+                <span class="db-kpi-label">Marge nette moy.</span>
+                <span class="db-kpi-sub" id="kpi-margin-sub">recettes avec MO renseignée</span>
+            </div>
+        </div>
 
-            <!-- Statistiques clés -->
-            <div class="card">
-                <h3>Statistiques Clés</h3>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-value" id="total-recipes">...</span>
-                        <span class="stat-label">Recettes</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="total-ingredients">...</span>
-                        <span class="stat-label">Ingrédients</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="avg-margin">...</span>
-                        <span class="stat-label">Marge Moyenne</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="top-recipe" style="font-size: 1.15rem; font-weight: 700; word-break: break-all;">...</span>
-                        <span class="stat-label">Top Rentable</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="missing-prices">...</span>
-                        <span class="stat-label">Sans Prix</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-value" id="mercuriale-health">...</span>
-                        <span class="stat-label">Santé Mercuriale</span>
+        <!-- Grille principale 2 colonnes -->
+        <div class="db-main-grid">
+
+            <!-- Colonne gauche : Top 5 + Alertes -->
+            <div class="db-left-col">
+
+                <!-- Top 5 recettes rentables -->
+                <div class="card">
+                    <h3>🏆 Top Recettes Rentables</h3>
+                    <div id="top-recipes-content">
+                        <p class="db-empty-state">Chargement...</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- Actions Rapides -->
-            <div class="card">
-                <h3>Actions Rapides</h3>
-                <div class="actions-grid">
-                    <a href="recettes.html?action=add" class="action-button">
-                        <span class="icon">🍳</span> Ajouter une recette
-                    </a>
-                    <a href="mercuriale.html?action=add" class="action-button">
-                        <span class="icon">🥕</span> Ajouter une denrée
-                    </a>
-                    <a href="bon-economat.html" class="action-button">
-                        <span class="icon">📋</span> Générer un bon d'économat
-                    </a>
+                <!-- Alertes & Diagnostics -->
+                <div class="card">
+                    <h3>🔔 Alertes & Diagnostics</h3>
+                    <div class="db-alert-list" id="alerts-content">
+                        <p class="db-empty-state">Chargement...</p>
+                    </div>
                 </div>
+
             </div>
 
-            <!-- Paramètres de Simulation Globaux -->
-            <div class="card">
-                <h3><span class="icon">⚙️</span> Paramètres Globaux</h3>
-                <form id="global-settings-form">
-                    <div style="display: flex; flex-direction: column; gap: 0.85rem; margin-top: 0.5rem;">
-                        <div class="form-group">
-                            <label for="settings-hourly-rate">Coût horaire chargé (€/h)</label>
-                            <input type="number" id="settings-hourly-rate" step="0.1" min="0" required>
+            <!-- Colonne droite : Actions + Paramètres + Données -->
+            <div class="db-right-col">
+
+                <!-- Actions Rapides -->
+                <div class="card">
+                    <h3><span class="icon">⚡</span> Actions Rapides</h3>
+                    <div class="actions-grid">
+                        <a href="recettes.html" class="action-button">
+                            <span class="icon">📖</span> Voir toutes les recettes
+                        </a>
+                        <a href="recettes.html?action=add" class="action-button">
+                            <span class="icon">🍳</span> Ajouter une recette
+                        </a>
+                        <a href="mercuriale.html?action=add" class="action-button">
+                            <span class="icon">🥕</span> Ajouter une denrée
+                        </a>
+                        <a href="bon-economat.html" class="action-button">
+                            <span class="icon">📋</span> Générer un bon d'économat
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Paramètres de Simulation Globaux -->
+                <div class="card">
+                    <h3><span class="icon">⚙️</span> Paramètres Globaux</h3>
+                    <form id="global-settings-form">
+                        <div style="display: flex; flex-direction: column; gap: 0.85rem; margin-top: 0.5rem;">
+                            <div class="form-group">
+                                <label for="settings-hourly-rate">Coût horaire chargé (€/h)</label>
+                                <input type="number" id="settings-hourly-rate" step="0.1" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-overhead">Frais généraux (%)</label>
+                                <input type="number" id="settings-overhead" step="0.1" min="0" max="100" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-target-margin">Marge nette cible (%)</label>
+                                <input type="number" id="settings-target-margin" step="0.1" min="0" max="100" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-vat">Taux de TVA (%)</label>
+                                <input type="number" id="settings-vat" step="0.1" min="0" max="100" required>
+                            </div>
+                            <button type="submit" class="button-primary" style="width: 100%; margin-top: 0.5rem;">
+                                Enregistrer &amp; Recalculer
+                            </button>
                         </div>
-                        <div class="form-group">
-                            <label for="settings-overhead">Frais généraux (%)</label>
-                            <input type="number" id="settings-overhead" step="0.1" min="0" max="100" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="settings-target-margin">Marge nette cible (%)</label>
-                            <input type="number" id="settings-target-margin" step="0.1" min="0" max="100" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="settings-vat">Taux de TVA (%)</label>
-                            <input type="number" id="settings-vat" step="0.1" min="0" max="100" required>
-                        </div>
-                        <button type="submit" class="button-primary" style="width: 100%; margin-top: 0.5rem;">
-                            Enregistrer & Recalculer
+                    </form>
+                </div>
+
+                <!-- Gestion des données -->
+                <div class="card">
+                    <h3>💾 Gestion des Données</h3>
+                    <div class="actions-grid">
+                        <button id="import-data-btn" class="action-button">
+                            <span class="icon">📤</span> Importer les données (.json)
+                        </button>
+                        <button id="export-data-btn" class="action-button">
+                            <span class="icon">📥</span> Exporter les données (.json)
+                        </button>
+                        <button id="convert-kg-btn" class="action-button">
+                            <span class="icon">🔁</span> Convertir kg → g
                         </button>
                     </div>
-                </form>
-            </div>
-
-            <!-- Gestion des données -->
-            <div class="card">
-                <h3>Gestion des Données</h3>
-                <div class="actions-grid">
-                    <button id="import-data-btn" class="action-button">
-                        <span class="icon">📤</span> Importer les données (.json)
-                    </button>
-                    <button id="export-data-btn" class="action-button">
-                        <span class="icon">📥</span> Exporter les données (.json)
-                    </button>
-                    <button id="convert-kg-btn" class="action-button">
-                        <span class="icon">🔁</span> Convertir kg → g (télécharger)
-                    </button>
                 </div>
-            </div>
 
-            <!-- Notifications -->
-            <div class="card card-notifications">
-                <h3>Notifications</h3>
-                <ul id="notifications-list">
-                    <!-- Les notifications seront injectées ici par JS -->
-                </ul>
             </div>
         </div>
     </main>

@@ -97,6 +97,18 @@ export function initRecettesPage() {
         showRecipeModal();
     }
 
+    const openDetailsId = localStorage.getItem('openRecipeDetailsId') || urlParams.get('details');
+    if (openDetailsId) {
+        localStorage.removeItem('openRecipeDetailsId');
+        showRecipeDetails(parseInt(openDetailsId));
+    }
+
+    const openEditId = localStorage.getItem('openRecipeEditId') || urlParams.get('edit');
+    if (openEditId) {
+        localStorage.removeItem('openRecipeEditId');
+        showRecipeModal(parseInt(openEditId));
+    }
+
     // Setup allergen modal close
     setupAllergenModal();
 }

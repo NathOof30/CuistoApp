@@ -1,14 +1,18 @@
-import { mercuriale, recipes, calculateRecipeCost, calculateNetMargin, calculateActualPriceHTPerServing, getIngredientById, updateGlobalSettings, VAT_RATE, CHARGED_HOURLY_RATE, OVERHEAD_RATE, TARGET_NET_MARGIN } from '../data.js';
+import {
+    mercuriale, recipes, calculateRecipeCost, calculateNetMargin,
+    calculateActualPriceHTPerServing, calculateSuggestedPrice,
+    getIngredientById, updateGlobalSettings,
+    VAT_RATE, CHARGED_HOURLY_RATE, OVERHEAD_RATE, TARGET_NET_MARGIN
+} from '../data.js';
 import { formatCurrency, escapeHTML, formatPercent } from './common.js';
 import { showToast } from './ui-feedback.js';
 
-// Utiliser les exports directement pour éviter l'état obsolète
-
 export function initDashboard() {
     displayStats();
+    renderTopRecipes();
     displayNotifications();
     initSettingsForm();
-    
+
     const addDenreeBtn = document.querySelector('a.action-button[href="mercuriale.html?action=add"]');
     if (addDenreeBtn) {
         addDenreeBtn.addEventListener('click', (e) => {
@@ -22,8 +26,6 @@ export function initDashboard() {
     if (addRecipeBtn) {
         addRecipeBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            // This is a simplified way to communicate between pages without a complex router.
-            // We set a flag and the recettes page will check for it.
             localStorage.setItem('openRecipeModal', 'true');
             window.location.href = 'recettes.html';
         });
@@ -39,7 +41,7 @@ function initSettingsForm() {
     const targetMarginInput = document.getElementById('settings-target-margin');
     const vatInput = document.getElementById('settings-vat');
 
-    // Pré-remplir avec les valeurs courantes (on multiplie les taux par 100 pour l'affichage en %)
+    // Pré-remplir avec les valeurs courantes
     if (hourlyRateInput) hourlyRateInput.value = CHARGED_HOURLY_RATE.toFixed(2);
     if (overheadInput) overheadInput.value = (OVERHEAD_RATE * 100).toFixed(1);
     if (targetMarginInput) targetMarginInput.value = (TARGET_NET_MARGIN * 100).toFixed(1);
@@ -69,6 +71,7 @@ function initSettingsForm() {
 
         // Rafraîchir l'affichage du dashboard
         displayStats();
+        renderTopRecipes();
         displayNotifications();
 
         showToast('Paramètres de simulation enregistrés et appliqués !', 'success', 2000);
@@ -76,107 +79,238 @@ function initSettingsForm() {
 }
 
 function displayStats() {
-    document.getElementById('total-recipes').textContent = recipes.length;
-    document.getElementById('total-ingredients').textContent = mercuriale.length;
+    const totalRecipesEl = document.getElementById('kpi-total-recipes');
+    const totalSubEl = document.getElementById('kpi-total-sub');
+    const profitableEl = document.getElementById('kpi-profitable-recipes');
+    const profitableSubEl = document.getElementById('kpi-profitable-sub');
+    const deficitEl = document.getElementById('kpi-deficit-recipes');
+    const deficitCardEl = document.getElementById('kpi-deficit-card');
+    const avgMarginEl = document.getElementById('kpi-avg-margin');
+    const marginSubEl = document.getElementById('kpi-margin-sub');
 
-    // Calculate margins and profitability
+    const totalRecipes = recipes.length;
+    const totalIngredients = mercuriale.length;
+
+    // Analyse par recette avec MO
+    const recipesWithTime = recipes.filter(r => r.productionTime && r.productionTime > 0);
+    const targetPercent = TARGET_NET_MARGIN * 100;
+
+    let profitableCount = 0;
+    let deficitCount = 0;
     let sumMargins = 0;
-    let countMargins = 0;
-    let bestRecipeName = 'Aucune';
-    let bestRecipeMargin = -1;
 
-    recipes.forEach(recipe => {
-        const netMargin = calculateNetMargin(recipe);
-        const actualPVHT = calculateActualPriceHTPerServing(recipe);
-        if (actualPVHT > 0) {
-            sumMargins += netMargin;
-            countMargins++;
-
-            if (netMargin > bestRecipeMargin) {
-                bestRecipeMargin = netMargin;
-                bestRecipeName = recipe.name;
-            }
+    recipesWithTime.forEach(r => {
+        const netMargin = calculateNetMargin(r);
+        if (netMargin >= targetPercent) {
+            profitableCount++;
+        } else if (netMargin < 0) {
+            deficitCount++;
         }
+        sumMargins += netMargin;
     });
 
-    const avgMargin = countMargins > 0 ? sumMargins / countMargins : 0;
-    const missingPricesCount = mercuriale.filter(ing => ing.price === null || ing.price === undefined || ing.price === '').length;
-    const healthPercent = mercuriale.length > 0 ? ((mercuriale.length - missingPricesCount) / mercuriale.length) * 100 : 100;
+    const avgMargin = recipesWithTime.length > 0 ? (sumMargins / recipesWithTime.length) : null;
 
-    document.getElementById('avg-margin').textContent = formatPercent(avgMargin);
-    document.getElementById('top-recipe').textContent = bestRecipeName;
-    if (bestRecipeName !== 'Aucune') {
-        document.getElementById('top-recipe').title = `${bestRecipeName} (${formatPercent(bestRecipeMargin)} de marge)`;
-    }
-    document.getElementById('missing-prices').textContent = missingPricesCount;
-    document.getElementById('mercuriale-health').textContent = formatPercent(healthPercent, 0);
+    if (totalRecipesEl) totalRecipesEl.textContent = totalRecipes;
+    if (totalSubEl) totalSubEl.textContent = `${totalIngredients} denrée${totalIngredients > 1 ? 's' : ''} en mercuriale`;
 
-    // Apply color coding to health and missing prices
-    const missingPricesEl = document.getElementById('missing-prices');
-    if (missingPricesCount > 0) {
-        missingPricesEl.style.color = 'var(--margin-low)';
-    } else {
-        missingPricesEl.style.color = 'var(--margin-high)';
+    if (profitableEl) profitableEl.textContent = profitableCount;
+    if (profitableSubEl) {
+        profitableSubEl.textContent = recipesWithTime.length > 0
+            ? `${profitableCount} sur ${recipesWithTime.length} avec MO`
+            : `Cible : ${targetPercent.toFixed(0)}%`;
     }
 
-    const healthEl = document.getElementById('mercuriale-health');
-    if (healthPercent >= 90) {
-        healthEl.style.color = 'var(--margin-high)';
-    } else if (healthPercent >= 70) {
-        healthEl.style.color = 'var(--margin-medium)';
-    } else {
-        healthEl.style.color = 'var(--margin-low)';
+    if (deficitEl) deficitEl.textContent = deficitCount;
+    if (deficitCardEl) {
+        deficitCardEl.className = deficitCount > 0
+            ? 'db-kpi-card db-kpi-danger'
+            : (recipesWithTime.length > 0 ? 'db-kpi-card db-kpi-success' : 'db-kpi-card db-kpi-neutral');
+    }
+
+    if (avgMarginEl) {
+        avgMarginEl.textContent = avgMargin !== null ? formatPercent(avgMargin) : 'N/A';
+        avgMarginEl.style.color = avgMargin !== null
+            ? (avgMargin >= 20 ? 'var(--margin-high)' : (avgMargin >= 10 ? 'var(--margin-medium)' : 'var(--margin-low)'))
+            : 'var(--text-color)';
+    }
+    if (marginSubEl) {
+        marginSubEl.textContent = recipesWithTime.length > 0
+            ? `${recipesWithTime.length} recette${recipesWithTime.length > 1 ? 's' : ''} analysée${recipesWithTime.length > 1 ? 's' : ''}`
+            : 'Temps de prod. non renseigné';
     }
 }
 
-export function displayNotifications() {
-    const notificationsList = document.getElementById('notifications-list');
-    if (!notificationsList) return;
-    notificationsList.innerHTML = '';
-    let hasNotifications = false;
+function renderTopRecipes() {
+    const container = document.getElementById('top-recipes-content');
+    if (!container) return;
 
-    mercuriale.forEach(ing => {
-        let messages = [];
-        if (ing.price === null || ing.price === undefined || ing.price === '') {
-            messages.push("prix manquant");
+    if (recipes.length === 0) {
+        container.innerHTML = `
+            <div class="db-empty-state">
+                <p>🍳 Aucune recette enregistrée pour le moment.</p>
+                <a href="recettes.html?action=add" class="button-primary" style="margin-top:0.75rem; display:inline-flex;">+ Créer une recette</a>
+            </div>
+        `;
+        return;
+    }
+
+    // Calculer et classer les recettes
+    const rankedRecipes = [...recipes].map(recipe => {
+        const hasTime = recipe.productionTime && recipe.productionTime > 0;
+        const netMargin = hasTime ? calculateNetMargin(recipe) : null;
+        const totalCost = calculateRecipeCost(recipe);
+        const costPerServing = recipe.servings > 0 ? totalCost / recipe.servings : 0;
+        const pvHT = calculateActualPriceHTPerServing(recipe);
+        const grossMargin = pvHT > 0 ? ((pvHT - costPerServing) / pvHT) * 100 : 0;
+        return {
+            recipe,
+            hasTime,
+            netMargin,
+            pvHT,
+            grossMargin
+        };
+    }).sort((a, b) => {
+        // Priorité aux recettes avec MO renseignée, puis marge nette décroissante
+        if (a.hasTime && !b.hasTime) return -1;
+        if (!a.hasTime && b.hasTime) return 1;
+        if (a.hasTime && b.hasTime) return b.netMargin - a.netMargin;
+        return b.grossMargin - a.grossMargin;
+    }).slice(0, 5);
+
+    let rowsHtml = '';
+    rankedRecipes.forEach((item, index) => {
+        const r = item.recipe;
+        const rank = index + 1;
+        let marginBadge = '';
+
+        if (item.hasTime) {
+            const pillClass = item.netMargin >= 20 ? 'high' : (item.netMargin >= 10 ? 'medium' : 'low');
+            marginBadge = `<span class="db-margin-pill ${pillClass}">${formatPercent(item.netMargin)}</span>`;
+        } else {
+            marginBadge = `<span class="db-margin-pill medium" title="Marge brute (temps de production non renseigné)">${formatPercent(item.grossMargin)} <small style="font-size:0.7rem;">(brute)</small></span>`;
         }
-        if (!ing.unit) {
-            messages.push("unité manquante");
-        }
-        if (!ing.family) {
-            messages.push("famille manquante");
-        }
-        
-        if(messages.length > 0) {
-            const li = document.createElement('li');
-            li.innerHTML = `<span class="icon">⚠️</span> Pour <strong>${escapeHTML(ing.name)}</strong>: ${messages.map(escapeHTML).join(', ')}. <a href="mercuriale.html">Mettre à jour</a>`;
-            notificationsList.appendChild(li);
-            hasNotifications = true;
-        }
+
+        rowsHtml += `
+            <tr class="db-top-row" data-recipe-id="${r.id}" title="Cliquer pour voir la fiche technique complète">
+                <td>
+                    <div class="db-top-row-name">
+                        <span class="db-rank-badge rank-${rank}">${rank}</span>
+                        <span>${escapeHTML(r.name)}</span>
+                        <span class="db-view-link">➔</span>
+                    </div>
+                </td>
+                <td class="font-mono" style="font-weight:600;">${formatCurrency(item.pvHT)}</td>
+                <td>${marginBadge}</td>
+            </tr>
+        `;
     });
 
-    recipes.forEach(recipe => {
-        if (!recipe.servings || recipe.servings <= 0) {
-            const li = document.createElement('li');
-            li.innerHTML = `<span class="icon">⚠️</span> Nombre de portions manquant pour la recette : <strong>${escapeHTML(recipe.name)}</strong>. <a href="recettes.html">Mettre à jour</a>`;
-            notificationsList.appendChild(li);
-            hasNotifications = true;
-        }
-        
-        recipe.ingredients.forEach(item => {
-            if (!item.quantity || item.quantity <= 0) {
-                 const ingredient = getIngredientById(item.ingredientId);
-                 if(ingredient) {
-                    const li = document.createElement('li');
-                    li.innerHTML = `<span class="icon">⚠️</span> Quantité manquante pour <strong>${escapeHTML(ingredient.name)}</strong> dans la recette <strong>${escapeHTML(recipe.name)}</strong>. <a href="recettes.html">Mettre à jour</a>`;
-                    notificationsList.appendChild(li);
-                    hasNotifications = true;
-                 }
+    container.innerHTML = `
+        <table class="db-top-table">
+            <thead>
+                <tr>
+                    <th>Recette</th>
+                    <th>Prix Vente HT</th>
+                    <th>Marge Nette</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHtml}
+            </tbody>
+        </table>
+    `;
+
+    // Clic sur une ligne → redirection vers la fiche recette
+    container.querySelectorAll('.db-top-row').forEach(row => {
+        row.addEventListener('click', () => {
+            const id = row.dataset.recipeId;
+            if (id) {
+                localStorage.setItem('openRecipeDetailsId', id);
+                window.location.href = 'recettes.html';
             }
         });
     });
-    
-    if(!hasNotifications) {
-        notificationsList.innerHTML = '<li><span class="icon">✅</span> Aucune notification. Tout est en ordre !</li>';
+}
+
+export function displayNotifications() {
+    const alertsContainer = document.getElementById('alerts-content');
+    if (!alertsContainer) return;
+    alertsContainer.innerHTML = '';
+
+    const alerts = [];
+
+    // 1. Recettes déficitaires (CRITIQUE 🔴)
+    recipes.forEach(recipe => {
+        if (recipe.productionTime && recipe.productionTime > 0) {
+            const netMargin = calculateNetMargin(recipe);
+            if (netMargin < 0) {
+                const suggestedPrice = calculateSuggestedPrice(recipe);
+                alerts.push({
+                    type: 'critical',
+                    icon: '🚨',
+                    html: `Recette <strong>${escapeHTML(recipe.name)}</strong> déficitaire (${formatPercent(netMargin)}). Prix conseillé : <strong>${formatCurrency(suggestedPrice.ht)} HT</strong>. <a href="recettes.html" class="db-alert-link" data-edit-id="${recipe.id}">Modifier</a>`
+                });
+            }
+        }
+    });
+
+    // 2. Recettes sans temps de production (AVERTISSEMENT ⏱️)
+    recipes.forEach(recipe => {
+        if (!recipe.productionTime || recipe.productionTime <= 0) {
+            alerts.push({
+                type: 'warning',
+                icon: '⏱️',
+                html: `Temps de production non renseigné pour <strong>${escapeHTML(recipe.name)}</strong> (Prime Cost incomplet). <a href="recettes.html" class="db-alert-link" data-edit-id="${recipe.id}">Renseigner</a>`
+            });
+        }
+    });
+
+    // 3. Denrées sans prix en mercuriale (INFO / AVERTISSEMENT 🥕)
+    const unpricedIngredients = mercuriale.filter(ing => ing.price === null || ing.price === undefined || ing.price === '');
+    if (unpricedIngredients.length > 0) {
+        const names = unpricedIngredients.slice(0, 3).map(i => escapeHTML(i.name)).join(', ');
+        const extra = unpricedIngredients.length > 3 ? ` et ${unpricedIngredients.length - 3} autre(s)` : '';
+        alerts.push({
+            type: 'info',
+            icon: '🥕',
+            html: `${unpricedIngredients.length} denrée(s) sans prix : <strong>${names}${extra}</strong>. <a href="mercuriale.html">Mettre à jour la mercuriale</a>`
+        });
     }
+
+    // 4. Aucune alerte ?
+    if (alerts.length === 0) {
+        alertsContainer.innerHTML = `
+            <div class="db-alert-item ok">
+                <span class="db-alert-icon">✨</span>
+                <div class="db-alert-body">
+                    <strong>Tout est optimal !</strong> Toutes vos fiches techniques sont complètes et rentables.
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Rendu des alertes
+    alerts.forEach(alert => {
+        const div = document.createElement('div');
+        div.className = `db-alert-item ${alert.type}`;
+        div.innerHTML = `
+            <span class="db-alert-icon">${alert.icon}</span>
+            <div class="db-alert-body">${alert.html}</div>
+        `;
+        alertsContainer.appendChild(div);
+    });
+
+    // Écouteurs sur les liens de modification directe
+    alertsContainer.querySelectorAll('.db-alert-link[data-edit-id]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const editId = link.dataset.editId;
+            if (editId) {
+                localStorage.setItem('openRecipeEditId', editId);
+                window.location.href = 'recettes.html';
+            }
+        });
+    });
 }

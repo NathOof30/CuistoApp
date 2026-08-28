@@ -376,7 +376,7 @@ function handleIngredientFormSubmit(e) {
     document.getElementById('ingredient-modal').style.display = 'none';
     showToast(ingredientId ? 'Denrée modifiée avec succès.' : 'Denrée ajoutée avec succès.', 'success');
 
-    if (document.getElementById('notifications-list')) {
+    if (document.getElementById('alerts-content') || document.getElementById('notifications-list')) {
         displayNotifications();
     }
 }
@@ -409,7 +409,7 @@ function deleteIngredient(ingredientId) {
         }
         populateFamilyFilter();
         renderMercurialeTable();
-        if (document.getElementById('notifications-list')) {
+        if (document.getElementById('alerts-content') || document.getElementById('notifications-list')) {
             displayNotifications();
         }
         showToast(usedIn.length > 0 ? 'Denrée supprimée et retirée des recettes associées.' : 'Denrée supprimée.', 'warning');
