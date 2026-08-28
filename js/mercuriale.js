@@ -248,6 +248,11 @@ function showIngredientModal(ingredientId = null) {
         document.getElementById('ingredient-price').value =
             ingredient.price !== null && ingredient.price !== undefined ? ingredient.price.toFixed(3) : '';
         document.getElementById('ingredient-yield').value = typeof ingredient.yield === 'number' ? ingredient.yield : 100;
+        // Poids brut par unité (optionnel)
+        const weightKgInput = document.getElementById('ingredient-weight-kg');
+        if (weightKgInput) {
+            weightKgInput.value = (typeof ingredient.weightKg === 'number' && ingredient.weightKg > 0) ? ingredient.weightKg : '';
+        }
 
         // Charger Famille
         if (ingredient.family) {
@@ -293,6 +298,8 @@ function showIngredientModal(ingredientId = null) {
         document.getElementById('modal-title').textContent = 'Ajouter une denrée';
         document.getElementById('ingredient-id').value = '';
         document.getElementById('ingredient-yield').value = 100;
+        const weightKgInput2 = document.getElementById('ingredient-weight-kg');
+        if (weightKgInput2) weightKgInput2.value = '';
         familySelect.value = '';
         familyCustomInput.style.display = 'none';
         familyCustomInput.value = '';
@@ -339,12 +346,16 @@ function handleIngredientFormSubmit(e) {
         subfamily = form.querySelector('#ingredient-subfamily-custom').value.trim();
     }
 
+    const weightKgInputVal = form.querySelector('#ingredient-weight-kg')?.value;
+    const weightKgVal = weightKgInputVal !== '' && weightKgInputVal !== undefined ? parseFloat(weightKgInputVal) : null;
+
     const ingredientData = {
         id: ingredientId ? parseInt(ingredientId) : nextIngredientId(),
         name: form.querySelector('#ingredient-name').value.trim(),
         unit: form.querySelector('#ingredient-unit').value.trim(),
         price: priceValue !== '' ? parseFloat(priceValue) : null,
         yield: yieldVal,
+        weightKg: (weightKgVal !== null && !isNaN(weightKgVal) && weightKgVal > 0) ? weightKgVal : null,
         family: family,
         subfamily: subfamily,
         allergens: selectedAllergens

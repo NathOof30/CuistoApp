@@ -790,6 +790,69 @@ export function showRecipeDetails(recipeId) {
         });
     }
 
+    // === CALCUL DU POIDS TOTAL ET PRIX AU KG ===
+    // Unités de masse → kg
+    const massToKg = { 'g': 0.001, 'gramme': 0.001, 'grammes': 0.001, 'kg': 1, 'kilo': 1, 'kilogramme': 1, 'kilogrammes': 1, 'mg': 0.000001 };
+    // Unités de volume → kg (approximation densité ≈ 1, valable pour la plupart des liquides culinaires)
+    const volumeToKg = { 'ml': 0.001, 'millilitre': 0.001, 'millilitres': 0.001, 'cl': 0.01, 'centilitre': 0.01, 'centilitres': 0.01, 'dl': 0.1, 'décilitre': 0.1, 'l': 1, 'litre': 1, 'litres': 1 };
+
+    let totalWeightKg = 0;
+    let excludedCount = 0;
+    let volumeApproxUsed = false;
+
+    (recipe.ingredients || []).forEach(item => {
+        if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) return; // sous-recettes ignorées
+        const ing = getIngredientById(item.ingredientId);
+        if (!ing) return;
+
+        const ingUnit = (item.unit || ing.unit || '').toLowerCase().trim();
+        const qty = parseFloat(item.quantity) || 0;
+        const recipeUnit = (item.unit || ing.unit || '').toLowerCase().trim();
+        // convertir dans l'unité de la mercuriale si nécessaire
+        const convertedQty = convertUnitQuantity(qty, item.unit || ing.unit, ing.unit);
+
+        if (massToKg[ingUnit]) {
+            totalWeightKg += convertedQty * massToKg[ingUnit];
+        } else if (volumeToKg[ingUnit]) {
+            totalWeightKg += convertedQty * volumeToKg[ingUnit];
+            volumeApproxUsed = true;
+        } else if (typeof ing.weightKg === 'number' && ing.weightKg > 0) {
+            // Unité non pondérale (pièce, boîte, lot…) mais poids renseigné dans la mercuriale
+            totalWeightKg += convertedQty * ing.weightKg;
+        } else {
+            excludedCount++;
+        }
+    });
+
+    const totalFoodCostForKg = calculateRecipeCost(recipe);
+    const pricePerKg = totalWeightKg > 0 ? totalFoodCostForKg / totalWeightKg : null;
+
+    // Construire la note de bas de tableau
+    let weightFootnote = '';
+    if (excludedCount > 0) {
+        weightFootnote += `<br><small style="color:var(--text-light);">⚠️ ${excludedCount} ingrédient(s) sans poids renseigné exclu(s) du calcul. Renseignez le champ "Poids brut / unité" dans la Mercuriale pour les inclure.</small>`;
+    }
+    if (volumeApproxUsed) {
+        weightFootnote += `<br><small style="color:var(--text-light);">ℹ️ Liquides comptés avec densité ≈ 1 kg/L (approximation).</small>`;
+    }
+
+    const weightTotalRow = `
+        <tr style="background: var(--bg-secondary, #f8fafc); border-top: 2px solid var(--border-color, #e2e8f0);">
+            <td colspan="2" style="font-weight:700; padding-top:0.6rem;">⚖️ Total recette</td>
+            <td class="text-right font-mono" style="font-weight:700; color: var(--text-light);">
+                ${totalWeightKg > 0 ? `${(totalWeightKg).toLocaleString('fr-FR', {minimumFractionDigits:3, maximumFractionDigits:3})} kg` : '—'}
+            </td>
+            <td class="text-right font-mono" style="font-weight:700;">
+                ${pricePerKg !== null ? `<span title="Prix au kg = Food Cost total ÷ Poids total">${formatCurrency(pricePerKg)}<small style="font-weight:normal; color:var(--text-light);"> / kg</small></span>` : '<span style="color:var(--text-light);">—</span>'}
+            </td>
+            <td></td>
+        </tr>
+        ${(excludedCount > 0 || volumeApproxUsed) ? `<tr><td colspan="5" style="padding-top:0.2rem; padding-bottom:0.5rem;">${weightFootnote}</td></tr>` : ''}
+    `;
+
+    ingredientsRowsHtml += weightTotalRow;
+
+
     // Diagnostics / Alerte conviviale
     let alertClass = 'alert-success';
     let alertTitle = '🌟 Alerte conviviale';

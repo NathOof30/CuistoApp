@@ -82,6 +82,12 @@
                             placeholder="100% (ex: 80% si 20% pertes)">
                     </div>
                     <div class="form-group">
+                        <label for="ingredient-weight-kg">Poids brut / unité (kg) <small style="color:var(--text-light); font-weight:normal;">— optionnel</small></label>
+                        <input type="number" id="ingredient-weight-kg" step="0.001" min="0"
+                            placeholder="Ex: 0.060 pour 1 œuf = 60g">
+                        <small class="form-hint" style="margin-top:0.3rem; display:block;">Renseignez pour les unités non pondérales (pièce, boîte, lot…) afin d'inclure cet ingrédient dans le calcul du prix au kg total d'une recette.</small>
+                    </div>
+                    <div class="form-group">
                         <label for="ingredient-family-select">Famille</label>
                         <select id="ingredient-family-select">
                             <!-- Populated dynamically -->
