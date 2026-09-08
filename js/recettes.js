@@ -5,6 +5,7 @@ import {
     calculateLaborCostPerServing, calculateTotalCostPerServing,
     calculateActualPriceHTPerServing,
     calculateNetMargin, calculateHourlyProfitability, calculateSuggestedPrice,
+    calculateRecipeWeight, calculateSalePricePerKgTTC, calculateSalePricePerKgHT,
     getRecipeAllergens, getRecipeAllergenDetails, nextRecipeId
 } from '../data.js';
 import { formatCurrency, formatCurrency3, formatUnitPrice, formatPercent, formatDuration, escapeHTML, formatQuantityInput, convertUnitQuantity, convertQuantityBetweenUnits, getCompatibleUnits } from './common.js';
@@ -141,6 +142,9 @@ export function renderRecipesTable() {
         const grossMargin = salePriceHT > 0 ? ((salePriceHT - costPerServing) / salePriceHT) * 100 : 0;
         const netMargin = calculateNetMargin(recipe);
         const hourlyProfit = calculateHourlyProfitability(recipe);
+        const weightInfo = calculateRecipeWeight(recipe);
+        const totalWeightKg = weightInfo.totalWeightKg;
+        const salePricePerKgTTC = calculateSalePricePerKgTTC(recipe, totalWeightKg);
 
         return {
             recipe,
@@ -151,6 +155,8 @@ export function renderRecipesTable() {
             costPerServing,
             salePriceHT,
             salePriceTTC,
+            totalWeightKg,
+            salePricePerKgTTC,
             grossMargin,
             netMargin,
             hourlyProfit
@@ -173,7 +179,7 @@ export function renderRecipesTable() {
         }
     });
 
-    computedRecipes.forEach(({ recipe, totalCost, costPerServing, salePriceHT, salePriceTTC, grossMargin, netMargin, hourlyProfit }) => {
+    computedRecipes.forEach(({ recipe, totalCost, costPerServing, salePriceHT, salePriceTTC, totalWeightKg, salePricePerKgTTC, grossMargin, netMargin, hourlyProfit }) => {
         // Marge brute classes & display
         let marginDisplay = 'N/A';
         let marginClass = '';
@@ -229,7 +235,10 @@ export function renderRecipesTable() {
             <td data-label="Coût total" class="text-right font-mono">${formatCurrency3(totalCost)}</td>
             <td data-label="Coût / portion" class="text-right font-mono">${formatCurrency3(costPerServing)}</td>
             <td data-label="PV HT" class="text-right font-mono">${formatCurrency3(salePriceHT)}</td>
-            <td data-label="PV TTC" class="text-right font-mono">${formatCurrency3(salePriceTTC)}</td>
+            <td data-label="PV TTC" class="text-right font-mono">
+                <div>${formatCurrency3(salePriceTTC)}</div>
+                ${salePricePerKgTTC !== null ? `<div style="font-size: 0.74rem; color: var(--text-light); font-weight: normal;" title="Prix de vente TTC au kilo = (PV TTC × Portions) ÷ Poids total">${formatCurrency(salePricePerKgTTC)}/kg</div>` : ''}
+            </td>
             <td data-label="Marge brute" class="text-center"><span class="margin-badge ${marginClass}">${marginDisplay}</span></td>
             <td data-label="Marge nette" class="text-center"><span class="margin-badge ${netMarginClass}" title="Marge nette (après main d'œuvre et frais)">${netMarginDisplay}</span></td>
             <td data-label="€/heure" class="text-center"><span class="profitability-badge ${hourlyProfitClass}" title="Rentabilité horaire">${hourlyProfitDisplay}</span></td>
@@ -617,11 +626,41 @@ function updateCostSummary() {
     const hourlyProfitability = calculateHourlyProfitability(tempRecipe);
     const suggestedPrice = calculateSuggestedPrice(tempRecipe);
 
+    // Calcul du poids et du prix de vente au kilo TTC
+    const weightInfo = calculateRecipeWeight(tempRecipe);
+    const totalWeightKg = weightInfo.totalWeightKg;
+    const salePricePerKgTTC = calculateSalePricePerKgTTC(tempRecipe, totalWeightKg);
+
     // Mise à jour des affichages de base
     document.getElementById('total-cost-display').textContent = formatCurrency3(totalCost);
     document.getElementById('cost-per-serving-display').textContent = formatCurrency3(costPerServing);
     document.getElementById('sale-price-ht-display').textContent = formatCurrency3(salePriceHT);
     document.getElementById('sale-price-ttc-display').textContent = formatCurrency3(salePriceTTC);
+
+    // Mise à jour du poids et du prix au kilo
+    const weightEl = document.getElementById('recipe-total-weight-display');
+    const salePriceKgEl = document.getElementById('sale-price-kg-display');
+    const salePriceKgHeroBadge = document.getElementById('sale-price-kg-hero-badge');
+    const salePriceKgHeroDisplay = document.getElementById('sale-price-kg-hero-display');
+
+    if (weightEl) {
+        weightEl.textContent = totalWeightKg > 0
+            ? `${totalWeightKg.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}\u00A0kg`
+            : '0,000\u00A0kg';
+    }
+    if (salePriceKgEl) {
+        salePriceKgEl.textContent = salePricePerKgTTC !== null
+            ? `${formatCurrency(salePricePerKgTTC)}\u00A0TTC/kg`
+            : '—';
+    }
+    if (salePriceKgHeroBadge && salePriceKgHeroDisplay) {
+        if (salePricePerKgTTC !== null && totalWeightKg > 0) {
+            salePriceKgHeroDisplay.textContent = formatCurrency(salePricePerKgTTC);
+            salePriceKgHeroBadge.style.display = 'inline-flex';
+        } else {
+            salePriceKgHeroBadge.style.display = 'none';
+        }
+    }
 
     // Mise à jour des affichages de rentabilité
     const laborCostEl = document.getElementById('labor-cost-display');
@@ -911,63 +950,35 @@ export function showRecipeDetails(recipeId) {
         });
     }
 
-    // === CALCUL DU POIDS TOTAL ET PRIX AU KG ===
-    // Unités de masse → kg
-    const massToKg = { 'g': 0.001, 'gr': 0.001, 'grs': 0.001, 'gm': 0.001, 'g.': 0.001, 'gramme': 0.001, 'grammes': 0.001, 'kg': 1, 'kgs': 1, 'kilo': 1, 'kilos': 1, 'kg.': 1, 'kilogramme': 1, 'kilogrammes': 1, 'mg': 0.000001, 'mgs': 0.000001 };
-    // Unités de volume → kg (approximation densité ≈ 1, valable pour la plupart des liquides culinaires)
-    const volumeToKg = { 'ml': 0.001, 'mls': 0.001, 'ml.': 0.001, 'millilitre': 0.001, 'millilitres': 0.001, 'cl': 0.01, 'cls': 0.01, 'cl.': 0.01, 'centilitre': 0.01, 'centilitres': 0.01, 'dl': 0.1, 'dls': 0.1, 'dl.': 0.1, 'décilitre': 0.1, 'décilitres': 0.1, 'l': 1, 'ls': 1, 'l.': 1, 'lit': 1, 'litre': 1, 'litres': 1 };
+    // === CALCUL DU POIDS TOTAL ET PRIX DE VENTE AU KG ===
+    const weightInfo = calculateRecipeWeight(recipe);
+    const totalWeightKg = weightInfo.totalWeightKg;
+    const excludedCount = weightInfo.excludedCount;
+    const volumeApproxUsed = weightInfo.volumeApproxUsed;
+    const salePricePerKgTTC = calculateSalePricePerKgTTC(recipe, totalWeightKg);
 
-    let totalWeightKg = 0;
-    let excludedCount = 0;
-    let volumeApproxUsed = false;
-
-    (recipe.ingredients || []).forEach(item => {
-        if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) return; // sous-recettes ignorées
-        const ing = getIngredientById(item.ingredientId);
-        if (!ing) return;
-
-        const recipeUnit = (item.unit || ing.unit || '').toLowerCase().trim();
-        const qty = parseFloat(item.quantity) || 0;
-
-        if (massToKg[recipeUnit]) {
-            totalWeightKg += qty * massToKg[recipeUnit];
-        } else if (volumeToKg[recipeUnit]) {
-            totalWeightKg += qty * volumeToKg[recipeUnit];
-            volumeApproxUsed = true;
-        } else if (typeof ing.weightKg === 'number' && ing.weightKg > 0) {
-            // Unité non pondérale (pièce, boîte, lot…) mais poids renseigné dans la mercuriale
-            const convertedQty = convertUnitQuantity(qty, item.unit || ing.unit, ing.unit);
-            totalWeightKg += convertedQty * ing.weightKg;
-        } else {
-            excludedCount++;
-        }
-    });
-
-    const totalFoodCostForKg = calculateRecipeCost(recipe);
-    const pricePerKg = totalWeightKg > 0 ? totalFoodCostForKg / totalWeightKg : null;
-
-    // Construire la note de bas de tableau
+    // Construire la note de bas de tableau (avertissements uniquement si denrée exclue ou liquide approximé)
     let weightFootnote = '';
     if (excludedCount > 0) {
-        weightFootnote += `<br><small style="color:var(--text-light);">⚠️ ${excludedCount} ingrédient(s) sans poids renseigné exclu(s) du calcul. Renseignez le champ "Poids brut / unité" dans la Mercuriale pour les inclure.</small>`;
+        weightFootnote += `<small style="color:var(--text-light); white-space:nowrap;">⚠️ ${excludedCount} ingrédient(s) sans poids exclu(s). Renseignez le "Poids brut / unité" dans la Mercuriale.</small><br>`;
     }
     if (volumeApproxUsed) {
-        weightFootnote += `<br><small style="color:var(--text-light);">ℹ️ Liquides comptés avec densité ≈ 1 kg/L (approximation).</small>`;
+        weightFootnote += `<small style="color:var(--text-light); white-space:nowrap;">ℹ️ Liquides comptés avec densité ≈ 1 kg/L (approximation standard).</small>`;
     }
 
     const weightTotalRow = `
-        <tr style="background: var(--bg-secondary, #f8fafc); border-top: 2px solid var(--border-color, #e2e8f0);">
-            <td style="font-weight:700; padding-top:0.6rem; padding-bottom:0.6rem;">⚖️ Total recette</td>
-            <td class="text-center font-mono" style="font-weight:700; padding-top:0.6rem; padding-bottom:0.6rem;">
-                ${totalWeightKg > 0 ? `${totalWeightKg.toLocaleString('fr-FR', {minimumFractionDigits:3, maximumFractionDigits:3})} kg` : '—'}
+        <tr class="weight-total-row" style="background: var(--bg-secondary, #f8fafc); border-top: 2px solid var(--border-color, #e2e8f0); white-space: nowrap !important;">
+            <td style="font-weight:700; padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;">⚖️&nbsp;Total&nbsp;recette</td>
+            <td class="text-center font-mono" style="font-weight:700; padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;" title="Poids total calculé de la recette">
+                ${totalWeightKg > 0 ? `${totalWeightKg.toLocaleString('fr-FR', {minimumFractionDigits:3, maximumFractionDigits:3})}&nbsp;kg` : '—'}
             </td>
-            <td class="text-right font-mono" style="color: var(--text-light); padding-top:0.6rem; padding-bottom:0.6rem;">—</td>
-            <td class="text-right font-mono" style="font-weight:700; padding-top:0.6rem; padding-bottom:0.6rem;">
-                ${pricePerKg !== null ? `<span title="Prix au kg = Food Cost total ÷ Poids total">${formatCurrency(pricePerKg)}<small style="font-weight:normal; color:var(--text-light);"> / kg</small></span>` : '<span style="color:var(--text-light);">—</span>'}
+            <td class="text-right font-mono" style="color: var(--text-light); padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;">—</td>
+            <td class="text-right font-mono" style="font-weight:700; padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;" title="Coût matière total pour le poids total de la recette">
+                ${formatCurrency3(totalCost)}
             </td>
-            <td style="padding-top:0.6rem; padding-bottom:0.6rem;"></td>
+            <td style="padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;"></td>
         </tr>
-        ${(excludedCount > 0 || volumeApproxUsed) ? `<tr><td colspan="5" style="padding-top:0.2rem; padding-bottom:0.6rem;">${weightFootnote}</td></tr>` : ''}
+        ${(excludedCount > 0 || volumeApproxUsed) ? `<tr><td colspan="5" style="padding-top:0.3rem; padding-bottom:0.6rem; line-height:1.4;">${weightFootnote}</td></tr>` : ''}
     `;
 
 
@@ -1109,6 +1120,11 @@ export function showRecipeDetails(recipeId) {
                             <div class="rentability-price-label">Prix de vente HT</div>
                             <div class="rentability-price-value-ht">${formatCurrency3(salePriceHT)}</div>
                             <div class="rentability-price-value-ttc">TTC : ${formatCurrency3(salePriceTTC)}</div>
+                            ${salePricePerKgTTC !== null ? `
+                                <div class="rentability-price-badge-kg" style="white-space: nowrap !important;" title="Prix de vente TTC au kilo = (${formatCurrency3(salePriceTTC)} TTC × ${recipe.servings || 1} portions) ÷ ${totalWeightKg.toLocaleString('fr-FR', {minimumFractionDigits:3, maximumFractionDigits:3})} kg">
+                                    ⚖️&nbsp;Prix au kg&nbsp;:&nbsp;<strong>${formatCurrency(salePricePerKgTTC)}</strong>&nbsp;TTC/kg
+                                </div>
+                            ` : ''}
                         </div>
 
                         <div class="margin-progress-section">
@@ -1128,6 +1144,12 @@ export function showRecipeDetails(recipeId) {
                         </div>
 
                         <div class="rentability-stats-list">
+                            <div class="rentability-stat-item" style="background: rgba(79, 70, 229, 0.05); padding: 0.35rem 0.5rem; border-radius: 6px; margin-bottom: 0.35rem;">
+                                <span class="rentability-stat-label" style="font-weight: 600; color: var(--text-color);">⚖️ Prix de vente au kilo :</span>
+                                <span class="rentability-stat-value font-mono" style="color: var(--primary-color); font-weight: 800;">
+                                    ${salePricePerKgTTC !== null ? `${formatCurrency(salePricePerKgTTC)} TTC / kg` : '<span style="color:var(--text-light); font-weight:normal;">—</span>'}
+                                </span>
+                            </div>
                             <div class="rentability-stat-item">
                                 <span class="rentability-stat-label">Coût Main d'Œuvre :</span>
                                 <span class="rentability-stat-value">${formatCurrency3(laborCostPerServing)} / p</span>
@@ -1270,6 +1292,11 @@ function generateCalculationAuditHTML(recipe) {
     const suggestedPriceHT = fullCostPerServing / (1 - TARGET_NET_MARGIN);
     const suggestedPriceTTC = suggestedPriceHT * (1 + VAT_RATE);
 
+    // 7. Poids & Prix au Kilo TTC
+    const weightInfo = calculateRecipeWeight(recipe);
+    const totalWeightKg = weightInfo.totalWeightKg;
+    const salePricePerKgTTC = calculateSalePricePerKgTTC(recipe, totalWeightKg);
+
     return `
         <div class="audit-sheet">
             <div class="audit-header">
@@ -1286,10 +1313,14 @@ function generateCalculationAuditHTML(recipe) {
             <!-- Paramètres de Configuration Globaux -->
             <div class="audit-section">
                 <h2>1. PARAMÈTRES ET HYPOTHÈSES DE CALCUL</h2>
-                <div class="audit-grid-4">
+                <div class="audit-grid-4" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
                     <div class="audit-card">
                         <span class="card-label">Portions (N)</span>
                         <span class="card-value">${servings}</span>
+                    </div>
+                    <div class="audit-card">
+                        <span class="card-label">Poids Total</span>
+                        <span class="card-value">${totalWeightKg > 0 ? `${totalWeightKg.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg` : 'N/A'}</span>
                     </div>
                     <div class="audit-card">
                         <span class="card-label">Temps Prod. Total (T)</span>
@@ -1397,6 +1428,11 @@ function generateCalculationAuditHTML(recipe) {
                         <span class="formula-label">Prix de Vente TTC (TVA ${(VAT_RATE*100).toFixed(0)}%)</span>
                         <span class="formula-expr">PV_HT × ${(1 + VAT_RATE).toFixed(2)}</span>
                         <span class="formula-val">${formatCurrency3(salePriceTTC)} TTC</span>
+                    </div>
+                    <div class="audit-formula-row highlight-row">
+                        <span class="formula-label">Prix de Vente au Kilo TTC</span>
+                        <span class="formula-expr">(PV_TTC × N) / Poids = (${formatCurrency3(salePriceTTC)} × ${servings}) / ${totalWeightKg > 0 ? `${totalWeightKg.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg` : 'N/A'}</span>
+                        <span class="formula-val">${salePricePerKgTTC !== null ? `${formatCurrency(salePricePerKgTTC)} TTC / kg` : 'N/A'}</span>
                     </div>
                     <div class="audit-formula-row">
                         <span class="formula-label">Bénéfice Net / portion</span>

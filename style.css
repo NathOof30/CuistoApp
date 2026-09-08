@@ -1649,6 +1649,39 @@ body.dark-mode tbody tr:nth-child(even) {
     margin-top: 0.35rem;
 }
 
+.rentability-price-badge-kg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 0.65rem;
+    padding: 0.32rem 0.75rem;
+    background: rgba(79, 70, 229, 0.08);
+    border: 1px solid rgba(79, 70, 229, 0.22);
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+    white-space: nowrap !important;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+body.dark-mode .rentability-price-badge-kg {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #a5b4fc;
+}
+
+.ingredients-detail-table .weight-total-row td,
+.ingredients-detail-table td.font-mono,
+.ingredients-detail-table th.text-center,
+.ingredients-detail-table th.text-right {
+    white-space: nowrap !important;
+}
+
 /* Net Margin Progress Bar */
 .margin-progress-section {
     margin: 1.25rem 0;

@@ -298,6 +298,165 @@ function calculateSuggestedPrice(recipe, targetMargin = TARGET_NET_MARGIN) {
   };
 }
 
+// === CALCULS DU POIDS & DU PRIX AU KILO ===
+
+const MASS_TO_KG = {
+  'g': 0.001, 'gr': 0.001, 'grs': 0.001, 'gm': 0.001, 'g.': 0.001, 'gramme': 0.001, 'grammes': 0.001,
+  'kg': 1, 'kgs': 1, 'kilo': 1, 'kilos': 1, 'kg.': 1, 'kilogramme': 1, 'kilogrammes': 1,
+  'mg': 0.000001, 'mgs': 0.000001, 'mg.': 0.000001
+};
+
+const VOLUME_TO_KG = {
+  'ml': 0.001, 'mls': 0.001, 'ml.': 0.001, 'millilitre': 0.001, 'millilitres': 0.001,
+  'cl': 0.01, 'cls': 0.01, 'cl.': 0.01, 'centilitre': 0.01, 'centilitres': 0.01,
+  'dl': 0.1, 'dls': 0.1, 'dl.': 0.1, 'décilitre': 0.1, 'décilitres': 0.1,
+  'l': 1, 'ls': 1, 'l.': 1, 'lit': 1, 'litre': 1, 'litres': 1
+};
+
+/**
+ * Calcule le poids total en kilogrammes (kg) d'une recette
+ * Prend en compte :
+ *  - Les unités de masse (kg, g, mg...)
+ *  - Les unités de volume avec densité culinaire standard 1 L ≈ 1 kg (L, cl, ml, dl...)
+ *  - Les denrées unitaires/conditionnées ayant un poids brut par unité renseigné dans la Mercuriale (weightKg)
+ *  - Les sous-recettes imbriquées de façon récursive avec protection anti-boucle infinie
+ * 
+ * @param {Object} recipe - La recette
+ * @param {Set} [visitedRecipeIds=new Set()] - Set de détection des cycles de sous-recettes
+ * @returns {{ totalWeightKg: number, excludedCount: number, volumeApproxUsed: boolean, isComplete: boolean }}
+ */
+function calculateRecipeWeight(recipe, visitedRecipeIds = new Set()) {
+  if (!recipe || !Array.isArray(recipe.ingredients) || recipe.ingredients.length === 0) {
+    return { totalWeightKg: 0, excludedCount: 0, volumeApproxUsed: false, isComplete: true };
+  }
+
+  if (recipe.id && visitedRecipeIds.has(recipe.id)) {
+    return { totalWeightKg: 0, excludedCount: 0, volumeApproxUsed: false, isComplete: true };
+  }
+  const currentVisited = new Set(visitedRecipeIds);
+  if (recipe.id) currentVisited.add(recipe.id);
+
+  let totalWeightKg = 0;
+  let excludedCount = 0;
+  let volumeApproxUsed = false;
+
+  for (const item of recipe.ingredients) {
+    const qty = parseFloat(item.quantity) || 0;
+    if (qty <= 0) continue;
+
+    // Cas 1 : Sous-recette imbriquée
+    if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
+      const subId = parseInt(item.subRecipeId || item.ingredientId);
+      const subRecipe = recipes.find(r => r.id === subId);
+      if (subRecipe && item.quantity) {
+        const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
+        const subRes = calculateRecipeWeight(subRecipe, currentVisited);
+        const subWeightPerServing = subRes.totalWeightKg / subServings;
+        totalWeightKg += subWeightPerServing * qty;
+        excludedCount += subRes.excludedCount;
+        if (subRes.volumeApproxUsed) volumeApproxUsed = true;
+      }
+      continue;
+    }
+
+    // Cas 2 : Ingrédient issu de la mercuriale
+    const ingredient = getIngredientById(item.ingredientId);
+    if (!ingredient) {
+      excludedCount++;
+      continue;
+    }
+
+    const recipeUnit = String(item.unit || ingredient.unit || '').toLowerCase().trim();
+
+    if (MASS_TO_KG[recipeUnit] !== undefined) {
+      totalWeightKg += qty * MASS_TO_KG[recipeUnit];
+    } else if (VOLUME_TO_KG[recipeUnit] !== undefined) {
+      totalWeightKg += qty * VOLUME_TO_KG[recipeUnit];
+      volumeApproxUsed = true;
+    } else if (typeof ingredient.weightKg === 'number' && ingredient.weightKg > 0) {
+      const convertedQty = convertUnitQuantity(qty, item.unit || ingredient.unit, ingredient.unit);
+      totalWeightKg += convertedQty * ingredient.weightKg;
+    } else {
+      excludedCount++;
+    }
+  }
+
+  return {
+    totalWeightKg,
+    excludedCount,
+    volumeApproxUsed,
+    isComplete: excludedCount === 0
+  };
+}
+
+/**
+ * Calcule le prix de vente au kilo TTC d'une recette
+ * Formule : (Prix de vente TTC × Portions) ÷ Poids total (kg)
+ * 
+ * @param {Object} recipe - La recette
+ * @param {number|null} [totalWeightKgOverride=null] - Poids pré-calculé optionnel
+ * @returns {number|null} - Prix de vente au kilo TTC, ou null si non calculable
+ */
+function calculateSalePricePerKgTTC(recipe, totalWeightKgOverride = null) {
+  if (!recipe) return null;
+  const weight = typeof totalWeightKgOverride === 'number'
+    ? totalWeightKgOverride
+    : calculateRecipeWeight(recipe).totalWeightKg;
+
+  if (!weight || weight <= 0) return null;
+
+  const servings = Math.max(1, parseFloat(recipe.servings) || 1);
+  const totalCost = calculateRecipeCost(recipe);
+  const costPerServing = servings > 0 ? totalCost / servings : 0;
+  const multiplier = Math.max(0, parseFloat(recipe.multiplier) || 0);
+  const salePriceHT = costPerServing * multiplier;
+  const salePriceTTC = salePriceHT * (1 + VAT_RATE);
+
+  // Prix de vente TTC unitaire commercial arrondi à la dizaine de centimes (identique au prix facturé au client)
+  let unitTTC = Math.ceil(salePriceTTC * 10) / 10;
+  if (salePriceTTC > 0 && salePriceTTC < 0.10) {
+    unitTTC = Math.ceil(salePriceTTC * 100) / 100;
+  }
+
+  const totalRevenueTTC = unitTTC * servings;
+  const pricePerKg = totalRevenueTTC / weight;
+
+  return isNaN(pricePerKg) || pricePerKg <= 0 ? null : pricePerKg;
+}
+
+/**
+ * Calcule le prix de vente au kilo HT d'une recette
+ * Formule : (Prix de vente HT × Portions) ÷ Poids total (kg)
+ * 
+ * @param {Object} recipe - La recette
+ * @param {number|null} [totalWeightKgOverride=null] - Poids pré-calculé optionnel
+ * @returns {number|null} - Prix de vente au kilo HT, ou null si non calculable
+ */
+function calculateSalePricePerKgHT(recipe, totalWeightKgOverride = null) {
+  if (!recipe) return null;
+  const weight = typeof totalWeightKgOverride === 'number'
+    ? totalWeightKgOverride
+    : calculateRecipeWeight(recipe).totalWeightKg;
+
+  if (!weight || weight <= 0) return null;
+
+  const servings = Math.max(1, parseFloat(recipe.servings) || 1);
+  const totalCost = calculateRecipeCost(recipe);
+  const costPerServing = servings > 0 ? totalCost / servings : 0;
+  const multiplier = Math.max(0, parseFloat(recipe.multiplier) || 0);
+  const salePriceHT = costPerServing * multiplier;
+
+  let unitHT = Math.ceil(salePriceHT * 10) / 10;
+  if (salePriceHT > 0 && salePriceHT < 0.10) {
+    unitHT = Math.ceil(salePriceHT * 100) / 100;
+  }
+
+  const totalRevenueHT = unitHT * servings;
+  const pricePerKg = totalRevenueHT / weight;
+
+  return isNaN(pricePerKg) || pricePerKg <= 0 ? null : pricePerKg;
+}
+
 // === FONCTIONS ALLERGÈNES ===
 
 /**
@@ -550,7 +709,7 @@ export {
   isDataLoaded,
   setData,
   auditAndRepairRecipes,
-  // Fonctions de rentabilité
+  // Fonctions de rentabilité & pricing
   calculateLaborCost,
   calculateLaborCostPerServing,
   calculateOverheadCost,
@@ -559,6 +718,10 @@ export {
   calculateNetMargin,
   calculateHourlyProfitability,
   calculateSuggestedPrice,
+  // Fonctions poids et prix au kilo
+  calculateRecipeWeight,
+  calculateSalePricePerKgTTC,
+  calculateSalePricePerKgHT,
   // Fonctions allergènes
   getRecipeAllergens,
   getRecipeAllergenDetails,

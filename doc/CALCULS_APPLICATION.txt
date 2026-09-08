@@ -231,6 +231,29 @@ standardisée du Prime Cost.
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 4.7 - POIDS TOTAL & PRIX DE VENTE AU KILO TTC (calculateSalePricePerKgTTC)  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ FORMULE DU POIDS TOTAL (calculateRecipeWeight) :                            │
+│   Poids total (kg) = Σ Poids des ingrédients (kg)                           │
+│   • Unités de masse : kg (×1), g (÷1000), mg (÷1 000 000)                   │
+│   • Unités de volume : L (×1), cl (÷100), ml (÷1000) [densité eau ≈ 1 kg/L] │
+│   • Unités de comptage (pièce, boîte...) : Quantité convertie × Poids/unité  │
+│   • Sous-recettes : (Poids sous-recette ÷ Portions sous-recette) × Qte      │
+│                                                                             │
+│ FORMULE DU PRIX DE VENTE AU KILO TTC :                                      │
+│   Prix de vente au kg TTC = (PV TTC unitaire × Portions) ÷ Poids total (kg) │
+│                                                                             │
+│ RÈGLE D'AFFICHAGE DU PIED DE TABLEAU :                                      │
+│   La ligne "⚖️ Total recette" affiche :                                     │
+│   • Quantité : Poids total de la recette en kg (ex: 2,498 kg)               │
+│   • Sous-total : Coût matière total pour ce poids total (ex: 21,10 €)       │
+│   • Le Prix de vente au kilo TTC est mis en avant dans la carte Rentabilité │
+│     et récapitulé en bas de tableau.                                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
 
 ═══════════════════════════════════════════════════════════════════════════════
     5. CALCULS LIÉS AUX ALLERGÈNES

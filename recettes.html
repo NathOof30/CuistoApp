@@ -141,6 +141,9 @@
                                     <div class="rentability-price-label">Prix de vente calculé (HT)</div>
                                     <div class="rentability-price-value-ht" id="sale-price-ht-display">0,000 €</div>
                                     <div class="rentability-price-value-ttc">TTC : <span id="sale-price-ttc-display">0,000 €</span></div>
+                                    <div class="rentability-price-badge-kg" id="sale-price-kg-hero-badge" style="display: none; white-space: nowrap !important;">
+                                        ⚖️&nbsp;Prix au kg&nbsp;:&nbsp;<strong id="sale-price-kg-hero-display">—</strong>&nbsp;TTC/kg
+                                    </div>
                                 </div>
 
                                 <div class="rentability-stats-list" style="border-top: none; padding-top: 0; margin-top: 0;">
@@ -151,6 +154,14 @@
                                     <div class="rentability-stat-item">
                                         <span class="rentability-stat-label">Coût matière / portion :</span>
                                         <span class="rentability-stat-value" id="cost-per-serving-display">0,000 €</span>
+                                    </div>
+                                    <div class="rentability-stat-item">
+                                        <span class="rentability-stat-label">Poids total recette :</span>
+                                        <span class="rentability-stat-value font-mono" id="recipe-total-weight-display">0,000 kg</span>
+                                    </div>
+                                    <div class="rentability-stat-item" style="background: rgba(79, 70, 229, 0.05); padding: 0.35rem 0.5rem; border-radius: 6px;">
+                                        <span class="rentability-stat-label" style="font-weight: 600; color: var(--text-color);">⚖️ Prix vente TTC / kg :</span>
+                                        <span class="rentability-stat-value font-mono" id="sale-price-kg-display" style="color: var(--primary-color); font-weight: 800;">—</span>
                                     </div>
                                     <div class="rentability-stat-item">
                                         <span class="rentability-stat-label">Coût MO / portion :</span>
