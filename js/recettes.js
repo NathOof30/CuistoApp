@@ -414,7 +414,18 @@ function addIngredientRow(ingredientItem = null) {
                 const convertedQty = convertUnitQuantity(quantity, recipeUnit, ing.unit);
                 const yieldPct = (typeof ing.yield === 'number' && ing.yield > 0) ? ing.yield : 100;
                 const effectiveUnitPrice = ing.price / (yieldPct / 100);
-                lineCostSpan.textContent = formatCurrency(effectiveUnitPrice * convertedQty);
+                const lineCost = effectiveUnitPrice * convertedQty;
+
+                const isSuspicious = (
+                    (String(ing.unit).toLowerCase() === 'kg' && String(recipeUnit).toLowerCase() === 'g' && quantity < 1) ||
+                    (String(ing.unit).toLowerCase() === 'l' && ['ml', 'cl'].includes(String(recipeUnit).toLowerCase()) && quantity < 1)
+                );
+
+                if (isSuspicious) {
+                    lineCostSpan.innerHTML = `<span style="color: #d97706; font-weight: 700;" title="Attention : ${quantity} ${escapeHTML(recipeUnit)} est très faible (< 1 g/ml). Vouliez-vous dire ${quantity} ${escapeHTML(ing.unit)} ?">⚠️ ${formatCurrency(lineCost)}</span>`;
+                } else {
+                    lineCostSpan.textContent = formatCurrency(lineCost);
+                }
             } else {
                 lineCostSpan.textContent = '—';
             }
@@ -878,10 +889,18 @@ export function showRecipeDetails(recipeId) {
                         ? `<span style="color:#ef4444;" title="${escapeHTML(ing.allergens.join(', '))}">⚠️ ${escapeHTML(ing.allergens.join(', '))}</span>`
                         : '<span style="color:#94a3b8;">—</span>';
 
+                    const isSuspiciousQty = (
+                        (String(ingUnit).toLowerCase() === 'kg' && String(recipeUnit).toLowerCase() === 'g' && item.quantity < 1) ||
+                        (String(ingUnit).toLowerCase() === 'l' && ['ml', 'cl'].includes(String(recipeUnit).toLowerCase()) && item.quantity < 1)
+                    );
+                    const qtyDisplay = isSuspiciousQty
+                        ? `<span style="color:#b45309; font-weight:700; background:#fef3c7; padding:2px 6px; border-radius:4px;" title="Quantité anormalement basse (${item.quantity} ${recipeUnit}) pour un ingrédient acheté au ${ingUnit}. Probable confusion avec ${item.quantity} ${ingUnit}.">⚠️ ${formatQuantityInput(item.quantity, recipeUnit)} ${escapeHTML(recipeUnit)}</span>`
+                        : `${formatQuantityInput(item.quantity, recipeUnit)} ${escapeHTML(recipeUnit)}`;
+
                     ingredientsRowsHtml += `
                         <tr>
                             <td style="font-weight: 600;">${escapeHTML(ing.name)}</td>
-                            <td class="text-center font-mono">${formatQuantityInput(item.quantity, recipeUnit)} ${escapeHTML(recipeUnit)}</td>
+                            <td class="text-center font-mono">${qtyDisplay}</td>
                             <td class="text-right font-mono">${formatUnitPrice(effectiveUnitPrice)} / ${escapeHTML(ingUnit)}${yieldPct < 100 ? ` <small class="text-muted">(${yieldPct}%)</small>` : ''}</td>
                             <td class="text-right font-mono" style="font-weight: 700;">${formatCurrency3(cost)}</td>
                             <td class="text-center font-mono">${allergenBadge}</td>
@@ -907,19 +926,17 @@ export function showRecipeDetails(recipeId) {
         const ing = getIngredientById(item.ingredientId);
         if (!ing) return;
 
-        const ingUnit = (item.unit || ing.unit || '').toLowerCase().trim();
-        const qty = parseFloat(item.quantity) || 0;
         const recipeUnit = (item.unit || ing.unit || '').toLowerCase().trim();
-        // convertir dans l'unité de la mercuriale si nécessaire
-        const convertedQty = convertUnitQuantity(qty, item.unit || ing.unit, ing.unit);
+        const qty = parseFloat(item.quantity) || 0;
 
-        if (massToKg[ingUnit]) {
-            totalWeightKg += convertedQty * massToKg[ingUnit];
-        } else if (volumeToKg[ingUnit]) {
-            totalWeightKg += convertedQty * volumeToKg[ingUnit];
+        if (massToKg[recipeUnit]) {
+            totalWeightKg += qty * massToKg[recipeUnit];
+        } else if (volumeToKg[recipeUnit]) {
+            totalWeightKg += qty * volumeToKg[recipeUnit];
             volumeApproxUsed = true;
         } else if (typeof ing.weightKg === 'number' && ing.weightKg > 0) {
             // Unité non pondérale (pièce, boîte, lot…) mais poids renseigné dans la mercuriale
+            const convertedQty = convertUnitQuantity(qty, item.unit || ing.unit, ing.unit);
             totalWeightKg += convertedQty * ing.weightKg;
         } else {
             excludedCount++;

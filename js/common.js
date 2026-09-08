@@ -190,6 +190,15 @@ export function convertQuantityBetweenUnits(qty, fromUnit, toUnit) {
     const toNorm = normalizeUnit(toUnit);
     if (fromNorm === toNorm || !fromNorm || !toNorm) return numQty;
 
+    // Détection d'erreur de saisie classique : l'utilisateur avait tapé 0.6 en pensant être en kg,
+    // mais le sélecteur était sur 'g'. S'il bascule maintenant sur 'kg', il veut 0.6 kg (pas 0.0006 kg).
+    if (fromNorm === 'g' && toNorm === 'kg' && numQty < 1) {
+        return numQty;
+    }
+    if ((fromNorm === 'ml' || fromNorm === 'cl') && toNorm === 'l' && numQty < 1) {
+        return numQty;
+    }
+
     const fromFactor = UNIT_FACTORS[fromNorm];
     const toFactor = UNIT_FACTORS[toNorm];
     if (fromFactor && toFactor) {

@@ -447,6 +447,47 @@ function loadData() {
       saveData(recipes, mercuriale);
     }
   }
+
+  // Audit et auto-correction des erreurs de saisie d'unités (ex: riz saisi à 0.6 g au lieu de 0.6 kg)
+  const repaired = auditAndRepairRecipes(recipes, mercuriale);
+  if (repaired > 0) {
+    saveData(recipes, mercuriale);
+  }
+}
+
+/**
+ * Détecte et corrige automatiquement les anomalies manifestes de saisie d'unité
+ * (ex: Riz thai ou farine acheté au kg mais saisi avec quantity = 0.6 et unit = 'g' au lieu de 0.6 kg).
+ */
+function auditAndRepairRecipes(recipesList, mercurialeList) {
+  let repairedCount = 0;
+  if (!Array.isArray(recipesList) || !Array.isArray(mercurialeList)) return 0;
+  const mercMap = new Map(mercurialeList.map(m => [m.id, m]));
+
+  recipesList.forEach(recipe => {
+    (recipe.ingredients || []).forEach(item => {
+      if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) return;
+      const ing = mercMap.get(item.ingredientId);
+      if (!ing) return;
+
+      const buyUnit = String(ing.unit || '').toLowerCase().trim();
+      const useUnit = String(item.unit || '').toLowerCase().trim();
+      const qty = parseFloat(item.quantity);
+
+      // Si ingrédient acheté au kg et quantité < 1 avec unité 'g' (ex: 0.6 g au lieu de 0.6 kg)
+      if (buyUnit === 'kg' && useUnit === 'g' && qty > 0 && qty < 1) {
+        console.warn(`[Auto-Repair] Correction d'unité pour "${ing.name}" dans "${recipe.name}": ${qty} g -> ${qty} kg`);
+        item.unit = 'kg';
+        repairedCount++;
+      } else if (buyUnit === 'l' && (useUnit === 'ml' || useUnit === 'cl') && qty > 0 && qty < 1) {
+        console.warn(`[Auto-Repair] Correction d'unité pour "${ing.name}" dans "${recipe.name}": ${qty} ${item.unit} -> ${qty} L`);
+        item.unit = 'L';
+        repairedCount++;
+      }
+    });
+  });
+
+  return repairedCount;
 }
 
 function isDataLoaded() {
@@ -463,6 +504,7 @@ function setData(newData) {
   if (newData && Array.isArray(newData.recipes) && Array.isArray(newData.mercuriale)) {
     recipes = newData.recipes;
     mercuriale = newData.mercuriale;
+    auditAndRepairRecipes(recipes, mercuriale);
     saveData(recipes, mercuriale);
     return true;
   }
@@ -507,6 +549,7 @@ export {
   loadData,
   isDataLoaded,
   setData,
+  auditAndRepairRecipes,
   // Fonctions de rentabilité
   calculateLaborCost,
   calculateLaborCostPerServing,
