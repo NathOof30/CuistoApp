@@ -7,7 +7,7 @@ import {
     calculateNetMargin, calculateHourlyProfitability, calculateSuggestedPrice,
     getRecipeAllergens, getRecipeAllergenDetails, nextRecipeId
 } from '../data.js';
-import { formatCurrency, formatCurrency3, formatPercent, formatDuration, escapeHTML, formatQuantityInput, convertUnitQuantity, getCompatibleUnits } from './common.js';
+import { formatCurrency, formatCurrency3, formatUnitPrice, formatPercent, formatDuration, escapeHTML, formatQuantityInput, convertUnitQuantity, convertQuantityBetweenUnits, getCompatibleUnits } from './common.js';
 import { showToast, showConfirm } from './ui-feedback.js';
 
 // Utiliser directement les exports pour éviter l'état obsolète
@@ -83,11 +83,14 @@ export function initRecettesPage() {
         }
     }
 
-    // Listen for input changes within the form to update costs in real-time
+    // Listen for input and change events within the form to update costs in real-time
     form.addEventListener('input', (e) => {
-        if (e.target.matches('#recipe-servings, #recipe-multiplier, #recipe-production-time, .ingredient-quantity, .ingredient-select')) {
+        if (e.target.matches('#recipe-servings, #recipe-multiplier, #recipe-production-time, .ingredient-quantity, .ingredient-select, .ingredient-unit-select')) {
             updateCostSummary();
         }
+    });
+    form.addEventListener('change', (e) => {
+        updateCostSummary();
     });
 
     // Check for query params or local storage flag to open modal
@@ -213,17 +216,12 @@ export function renderRecipesTable() {
             }
         }
 
-        // Allergènes
-        const allergens = getRecipeAllergenDetails(recipe);
-        const allergensHtml = renderAllergenBadges(allergens, recipe.id);
-
         const row = document.createElement('tr');
         row.style.cursor = 'pointer';
         row.innerHTML = `
             <td data-label="Recette">
                 <div class="recipe-name-cell">
                     ${escapeHTML(recipe.name)}
-                    ${allergensHtml}
                 </div>
             </td>
             <td data-label="Portions" class="font-mono text-center">${recipe.servings || 'N/A'}</td>
@@ -238,15 +236,6 @@ export function renderRecipesTable() {
         `;
         row.addEventListener('click', () => showRecipeDetails(recipe.id));
         tableBody.appendChild(row);
-    });
-
-    // Event listeners pour les badges d'allergènes
-    tableBody.querySelectorAll('.allergen-indicator').forEach(badge => {
-        badge.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const recipeId = badge.dataset.recipeId;
-            showAllergenModal(recipeId);
-        });
     });
 }
 
@@ -381,19 +370,62 @@ function addIngredientRow(ingredientItem = null) {
     unitSelect.className = 'ingredient-unit-select';
     unitSelect.style.minWidth = '80px';
 
+    const lineCostSpan = document.createElement('span');
+    lineCostSpan.className = 'ingredient-row-cost font-mono';
+    lineCostSpan.title = 'Coût ligne estimé';
+    lineCostSpan.textContent = '—';
+
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.textContent = '🗑️';
     deleteBtn.className = 'delete-ingredient-btn button-secondary';
+    deleteBtn.title = 'Supprimer cet ingrédient';
     deleteBtn.onclick = () => {
         row.remove();
         updateCostSummary();
     };
 
-    function updateUnitOptions() {
+    function updateRowCost() {
+        const selectedOpt = select.options[select.selectedIndex];
+        const quantity = parseFloat(quantityInput.value);
+        const unit = unitSelect.value;
+
+        if (!selectedOpt || !selectedOpt.value || isNaN(quantity) || quantity <= 0) {
+            lineCostSpan.textContent = '—';
+            return;
+        }
+
+        const type = selectedOpt.dataset.type;
+        const id = parseInt(selectedOpt.dataset.id);
+
+        if (type === 'subrecipe') {
+            const subRecipe = recipes.find(r => r.id === id);
+            if (subRecipe) {
+                const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
+                const subCostPerServing = calculateRecipeCost(subRecipe) / subServings;
+                lineCostSpan.textContent = formatCurrency(subCostPerServing * quantity);
+            } else {
+                lineCostSpan.textContent = '—';
+            }
+        } else {
+            const ing = getIngredientById(id);
+            if (ing && typeof ing.price === 'number') {
+                const recipeUnit = unit || ing.unit;
+                const convertedQty = convertUnitQuantity(quantity, recipeUnit, ing.unit);
+                const yieldPct = (typeof ing.yield === 'number' && ing.yield > 0) ? ing.yield : 100;
+                const effectiveUnitPrice = ing.price / (yieldPct / 100);
+                lineCostSpan.textContent = formatCurrency(effectiveUnitPrice * convertedQty);
+            } else {
+                lineCostSpan.textContent = '—';
+            }
+        }
+    }
+
+    function updateUnitOptions(preferredUnit = null) {
         const selectedOpt = select.options[select.selectedIndex];
         if (!selectedOpt || !selectedOpt.value) {
             unitSelect.innerHTML = `<option value="">-</option>`;
+            unitSelect.dataset.prevUnit = '';
             return;
         }
 
@@ -402,6 +434,8 @@ function addIngredientRow(ingredientItem = null) {
 
         if (type === 'subrecipe') {
             unitSelect.innerHTML = `<option value="portion">portion(s)</option>`;
+            unitSelect.value = 'portion';
+            unitSelect.dataset.prevUnit = 'portion';
             quantityInput.placeholder = 'Portions';
         } else {
             const ing = getIngredientById(id);
@@ -409,20 +443,46 @@ function addIngredientRow(ingredientItem = null) {
                 const compatUnits = getCompatibleUnits(ing.unit);
                 unitSelect.innerHTML = compatUnits.map(u => `<option value="${u}">${u}</option>`).join('');
                 quantityInput.placeholder = 'Qté';
+
+                const targetUnit = preferredUnit || ing.unit || compatUnits[0];
+                let matched = false;
+                for (let i = 0; i < unitSelect.options.length; i++) {
+                    if (unitSelect.options[i].value.toLowerCase() === String(targetUnit).toLowerCase()) {
+                        unitSelect.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && compatUnits.length > 0) {
+                    unitSelect.value = compatUnits[0];
+                }
+                unitSelect.dataset.prevUnit = unitSelect.value;
             }
         }
     }
 
     select.addEventListener('change', () => {
         updateUnitOptions();
+        updateRowCost();
         updateCostSummary();
     });
 
     unitSelect.addEventListener('change', () => {
+        const prevUnit = unitSelect.dataset.prevUnit || '';
+        const newUnit = unitSelect.value;
+        if (prevUnit && newUnit && prevUnit !== newUnit && quantityInput.value) {
+            const converted = convertQuantityBetweenUnits(quantityInput.value, prevUnit, newUnit);
+            if (converted !== '' && !isNaN(converted)) {
+                quantityInput.value = converted;
+            }
+        }
+        unitSelect.dataset.prevUnit = newUnit;
+        updateRowCost();
         updateCostSummary();
     });
 
     quantityInput.addEventListener('input', () => {
+        updateRowCost();
         updateCostSummary();
     });
 
@@ -430,22 +490,22 @@ function addIngredientRow(ingredientItem = null) {
         if (ingredientItem.isSubRecipe || ingredientItem.type === 'subrecipe' || ingredientItem.subRecipeId) {
             const subId = ingredientItem.subRecipeId || ingredientItem.ingredientId;
             select.value = `sub_${subId}`;
-            updateUnitOptions();
-            unitSelect.value = ingredientItem.unit || 'portion';
+            updateUnitOptions(ingredientItem.unit || 'portion');
             quantityInput.value = ingredientItem.quantity ?? '';
         } else if (ingredientItem.ingredientId) {
             select.value = `ing_${ingredientItem.ingredientId}`;
-            updateUnitOptions();
             const ing = getIngredientById(ingredientItem.ingredientId);
-            const unit = ingredientItem.unit || ing?.unit || '';
-            unitSelect.value = unit;
-            quantityInput.value = formatQuantityInput(ingredientItem.quantity, unit);
+            const initialUnit = ingredientItem.unit || ing?.unit || '';
+            updateUnitOptions(initialUnit);
+            quantityInput.value = formatQuantityInput(ingredientItem.quantity, unitSelect.value || initialUnit);
         }
+        updateRowCost();
     }
 
     row.appendChild(select);
     row.appendChild(quantityInput);
     row.appendChild(unitSelect);
+    row.appendChild(lineCostSpan);
     row.appendChild(deleteBtn);
     list.appendChild(row);
 }
@@ -477,7 +537,11 @@ function updateCostSummary() {
                 if (subRecipe) {
                     const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
                     const subCostPerServing = calculateRecipeCost(subRecipe) / subServings;
-                    totalCost += subCostPerServing * quantity;
+                    const lineCost = subCostPerServing * quantity;
+                    totalCost += lineCost;
+
+                    const lineCostSpan = row.querySelector('.ingredient-row-cost');
+                    if (lineCostSpan) lineCostSpan.textContent = formatCurrency(lineCost);
 
                     currentIngredients.push({
                         isSubRecipe: true,
@@ -492,14 +556,18 @@ function updateCostSummary() {
             } else {
                 const ingredient = getIngredientById(id);
                 if (ingredient) {
+                    let lineCost = 0;
                     if (typeof ingredient.price === 'number' && Number.isFinite(ingredient.price)) {
                         const recipeUnit = unit || ingredient.unit;
                         const convertedQty = convertUnitQuantity(quantity, recipeUnit, ingredient.unit);
                         const yieldPct = (typeof ingredient.yield === 'number' && ingredient.yield > 0) ? ingredient.yield : 100;
                         const effectiveUnitPrice = ingredient.price / (yieldPct / 100);
-
-                        totalCost += effectiveUnitPrice * convertedQty;
+                        lineCost = effectiveUnitPrice * convertedQty;
+                        totalCost += lineCost;
                     }
+
+                    const lineCostSpan = row.querySelector('.ingredient-row-cost');
+                    if (lineCostSpan) lineCostSpan.textContent = lineCost > 0 ? formatCurrency(lineCost) : '—';
 
                     currentIngredients.push({
                         ingredientId: id,
@@ -512,6 +580,9 @@ function updateCostSummary() {
                     }
                 }
             }
+        } else {
+            const lineCostSpan = row.querySelector('.ingredient-row-cost');
+            if (lineCostSpan) lineCostSpan.textContent = '—';
         }
     });
 
@@ -680,14 +751,33 @@ function handleFormSubmit(e) {
 function duplicateRecipe(recipeId) {
     const original = recipes.find(r => r.id == recipeId);
     if (!original) return;
+
+    const cleanIngredients = (original.ingredients || []).map(item => {
+        if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
+            return {
+                isSubRecipe: true,
+                subRecipeId: item.subRecipeId || item.ingredientId,
+                quantity: parseFloat(item.quantity) || 1,
+                unit: 'portion'
+            };
+        } else {
+            const ing = getIngredientById(item.ingredientId);
+            return {
+                ingredientId: item.ingredientId,
+                quantity: parseFloat(item.quantity) || 0,
+                unit: item.unit || ing?.unit || 'g'
+            };
+        }
+    });
+
     const copy = {
         id: nextRecipeId(),
         name: `${original.name} (copie)`,
-        servings: original.servings,
-        multiplier: original.multiplier,
-        productionTime: original.productionTime || 0,
+        servings: Math.max(1, parseFloat(original.servings) || 1),
+        multiplier: parseFloat(original.multiplier) || 3.5,
+        productionTime: parseFloat(original.productionTime) || 0,
         steps: original.steps || '',
-        ingredients: JSON.parse(JSON.stringify(original.ingredients || []))
+        ingredients: cleanIngredients
     };
     recipes.push(copy);
     saveData(recipes, mercuriale);
@@ -792,7 +882,7 @@ export function showRecipeDetails(recipeId) {
                         <tr>
                             <td style="font-weight: 600;">${escapeHTML(ing.name)}</td>
                             <td class="text-center font-mono">${formatQuantityInput(item.quantity, recipeUnit)} ${escapeHTML(recipeUnit)}</td>
-                            <td class="text-right font-mono">${formatCurrency3(effectiveUnitPrice)} / ${escapeHTML(ingUnit)}${yieldPct < 100 ? ` <small class="text-muted">(${yieldPct}%)</small>` : ''}</td>
+                            <td class="text-right font-mono">${formatUnitPrice(effectiveUnitPrice)} / ${escapeHTML(ingUnit)}${yieldPct < 100 ? ` <small class="text-muted">(${yieldPct}%)</small>` : ''}</td>
                             <td class="text-right font-mono" style="font-weight: 700;">${formatCurrency3(cost)}</td>
                             <td class="text-center font-mono">${allergenBadge}</td>
                         </tr>
@@ -804,9 +894,9 @@ export function showRecipeDetails(recipeId) {
 
     // === CALCUL DU POIDS TOTAL ET PRIX AU KG ===
     // Unités de masse → kg
-    const massToKg = { 'g': 0.001, 'gramme': 0.001, 'grammes': 0.001, 'kg': 1, 'kilo': 1, 'kilogramme': 1, 'kilogrammes': 1, 'mg': 0.000001 };
+    const massToKg = { 'g': 0.001, 'gr': 0.001, 'grs': 0.001, 'gm': 0.001, 'g.': 0.001, 'gramme': 0.001, 'grammes': 0.001, 'kg': 1, 'kgs': 1, 'kilo': 1, 'kilos': 1, 'kg.': 1, 'kilogramme': 1, 'kilogrammes': 1, 'mg': 0.000001, 'mgs': 0.000001 };
     // Unités de volume → kg (approximation densité ≈ 1, valable pour la plupart des liquides culinaires)
-    const volumeToKg = { 'ml': 0.001, 'millilitre': 0.001, 'millilitres': 0.001, 'cl': 0.01, 'centilitre': 0.01, 'centilitres': 0.01, 'dl': 0.1, 'décilitre': 0.1, 'l': 1, 'litre': 1, 'litres': 1 };
+    const volumeToKg = { 'ml': 0.001, 'mls': 0.001, 'ml.': 0.001, 'millilitre': 0.001, 'millilitres': 0.001, 'cl': 0.01, 'cls': 0.01, 'cl.': 0.01, 'centilitre': 0.01, 'centilitres': 0.01, 'dl': 0.1, 'dls': 0.1, 'dl.': 0.1, 'décilitre': 0.1, 'décilitres': 0.1, 'l': 1, 'ls': 1, 'l.': 1, 'lit': 1, 'litre': 1, 'litres': 1 };
 
     let totalWeightKg = 0;
     let excludedCount = 0;
@@ -1127,7 +1217,7 @@ function generateCalculationAuditHTML(recipe) {
                 <td style="text-align:center;">${index + 1}</td>
                 <td><strong>${escapeHTML(ing.name)}</strong></td>
                 <td style="text-align:right;">${item.quantity.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${escapeHTML(recipeUnit)}</td>
-                <td style="text-align:right;">${formatCurrency3(effectiveUnitPrice)} / ${escapeHTML(ingUnit)}${yieldNote}</td>
+                <td style="text-align:right;">${formatUnitPrice(effectiveUnitPrice)} / ${escapeHTML(ingUnit)}${yieldNote}</td>
                 <td style="text-align:right; font-weight:600;">${formatCurrency3(lineCost)}</td>
             </tr>
         `;

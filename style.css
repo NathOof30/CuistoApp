@@ -714,9 +714,66 @@ th, td {
     border-bottom: 1px solid var(--border-color);
 }
 
+/* --- Table des Recettes - Optimisation des Colonnes & Espacements --- */
+#recipes-table th,
+#recipes-table td {
+    padding: 0.85rem 0.65rem;
+}
+
+/* Colonne 1 : Nom de la recette */
 #recipes-table th:first-child,
 #recipes-table td:first-child {
-    width: 30%;
+    width: 24%;
+    min-width: 170px;
+}
+
+/* Colonne 2 : Portions (très compacte) */
+#recipes-table th:nth-child(2),
+#recipes-table td:nth-child(2) {
+    width: 70px;
+    max-width: 80px;
+    text-align: center;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+    white-space: nowrap;
+}
+
+/* Colonne 3 : CM (très compacte) */
+#recipes-table th:nth-child(3),
+#recipes-table td:nth-child(3) {
+    width: 60px;
+    max-width: 70px;
+    text-align: center;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+    white-space: nowrap;
+}
+
+/* Colonnes montants et marges */
+#recipes-table th:nth-child(4),
+#recipes-table td:nth-child(4),
+#recipes-table th:nth-child(5),
+#recipes-table td:nth-child(5),
+#recipes-table th:nth-child(6),
+#recipes-table td:nth-child(6),
+#recipes-table th:nth-child(7),
+#recipes-table td:nth-child(7),
+#recipes-table th:nth-child(8),
+#recipes-table td:nth-child(8),
+#recipes-table th:nth-child(9),
+#recipes-table td:nth-child(9) {
+    white-space: nowrap;
+}
+
+/* Colonne 10 : Dernière colonne €/heure - Strictement sur une ligne sans retour */
+#recipes-table th:nth-child(10),
+#recipes-table td:nth-child(10),
+#recipes-table th:last-child,
+#recipes-table td:last-child {
+    white-space: nowrap !important;
+    min-width: 115px;
+    width: 120px;
+    text-align: center;
 }
 
 #mercuriale-table th:first-child,
@@ -831,10 +888,12 @@ body.dark-mode tbody tr:nth-child(even) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.25rem 0.75rem;
+    padding: 0.25rem 0.65rem;
     border-radius: 9999px;
     font-size: 0.8rem;
     font-weight: 700;
+    white-space: nowrap;
+    line-height: 1.2;
 }
 
 .margin-high, .profit-high {
@@ -1688,15 +1747,18 @@ body.dark-mode .friendly-alert-card.alert-danger {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 0.5rem;
 }
 
 .rentability-stat-label {
     color: var(--text-light);
+    white-space: nowrap;
 }
 
 .rentability-stat-value {
     font-weight: 700;
     color: var(--text-color);
+    white-space: nowrap;
 }
 
 /* Actions in Right Panel */
@@ -2543,6 +2605,87 @@ body.dark-mode .global-total-banner {
     margin-bottom: 1.25rem;
     padding-bottom: 0.65rem;
     border-bottom: 2px solid var(--border-light);
+}
+
+/* --- Styles des Lignes d'Ingrédients (Composition de Recette) --- */
+.ingredient-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
+}
+
+.ingredient-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--card-background);
+    padding: 0.55rem 0.75rem;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.ingredient-row:hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.ingredient-row .ingredient-select {
+    flex: 3;
+    min-width: 150px;
+}
+
+.ingredient-row .ingredient-quantity {
+    flex: 1.2;
+    min-width: 75px;
+    max-width: 110px;
+    text-align: right;
+}
+
+.ingredient-row .ingredient-unit-select {
+    flex: 1;
+    min-width: 75px;
+    max-width: 100px;
+}
+
+.ingredient-row .ingredient-row-cost {
+    min-width: 75px;
+    text-align: right;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    white-space: nowrap;
+    padding: 0 0.25rem;
+}
+
+.ingredient-row .delete-ingredient-btn {
+    padding: 0.45rem 0.6rem;
+    min-width: 36px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 640px) {
+    .ingredient-row {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+    .ingredient-row .ingredient-select {
+        flex: 1 1 100%;
+    }
+    .ingredient-row .ingredient-quantity {
+        flex: 1;
+    }
+    .ingredient-row .ingredient-unit-select {
+        flex: 1;
+    }
+    .ingredient-row .ingredient-row-cost {
+        flex: 1;
+        text-align: right;
+    }
 }
 
 @keyframes fadeInTab {

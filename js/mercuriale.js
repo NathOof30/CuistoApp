@@ -246,7 +246,7 @@ function showIngredientModal(ingredientId = null) {
         document.getElementById('ingredient-name').value = ingredient.name;
         document.getElementById('ingredient-unit').value = ingredient.unit;
         document.getElementById('ingredient-price').value =
-            ingredient.price !== null && ingredient.price !== undefined ? ingredient.price.toFixed(3) : '';
+            ingredient.price !== null && ingredient.price !== undefined ? ingredient.price : '';
         document.getElementById('ingredient-yield').value = typeof ingredient.yield === 'number' ? ingredient.yield : 100;
         // Poids brut par unité (optionnel)
         const weightKgInput = document.getElementById('ingredient-weight-kg');

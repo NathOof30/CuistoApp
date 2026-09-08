@@ -17,6 +17,22 @@ export function formatCurrency(amount) {
     }).format(rounded);
 }
 
+export function formatUnitPrice(amount) {
+    if (typeof amount !== 'number' || isNaN(amount)) {
+        amount = 0;
+    }
+    if (amount <= 0) return '0,00 €';
+    if (amount < 0.05) {
+        return new Intl.NumberFormat('fr-FR', {
+            style: 'currency',
+            currency: 'EUR',
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 4
+        }).format(amount);
+    }
+    return formatCurrency(amount);
+}
+
 // Format avec 3 décimales désormais aligné sur 2 décimales pour respecter la consigne
 export function formatCurrency3(amount) {
     return formatCurrency(amount);
@@ -24,7 +40,8 @@ export function formatCurrency3(amount) {
 
 const COUNTABLE_UNITS = [
     'piece', 'pieces', 'pièce', 'pièces', 'boite', 'boîte', 'boites', 'boîtes',
-    'unite', 'unité', 'unites', 'unités', 'portion', 'portions', 'pcs'
+    'unite', 'unité', 'unites', 'unités', 'portion', 'portions', 'pcs', 'pc', 'pce', 'pces',
+    'lot', 'lots', 'botte', 'bottes', 'sachet', 'sachets', 'bouteille', 'bouteilles'
 ];
 
 function normalizeUnit(unit) {
@@ -87,32 +104,56 @@ export function formatQuantityPlain(value, unit) {
 
 // Alias explicite pour les champs <input type="number">
 export function formatQuantityInput(value, unit) {
-    return formatQuantityPlain(value, unit);
+    const numericValue = typeof value === 'number' && Number.isFinite(value) ? value : parseFloat(value) || 0;
+    if (isCountUnit(unit)) {
+        return String(Math.round(numericValue));
+    }
+    // Éviter les traînées de zéros inutiles tout en restant propre (ex: 600 ou 0.6 au lieu de 600.000)
+    const formatted = parseFloat(numericValue.toFixed(4));
+    return String(formatted);
 }
 
 // === MOTEUR DE CONVERSION D'UNITÉS CULINAIRES ===
 const UNIT_FACTORS = {
     // Masse (unité de base: g)
     'g': 1,
+    'gr': 1,
+    'grs': 1,
+    'gm': 1,
+    'g.': 1,
     'gramme': 1,
     'grammes': 1,
     'kg': 1000,
+    'kgs': 1000,
     'kilo': 1000,
+    'kilos': 1000,
+    'kg.': 1000,
     'kilogramme': 1000,
     'kilogrammes': 1000,
     'mg': 0.001,
+    'mgs': 0.001,
+    'mg.': 0.001,
 
     // Volume (unité de base: ml)
     'ml': 1,
+    'mls': 1,
+    'ml.': 1,
     'millilitre': 1,
     'millilitres': 1,
     'cl': 10,
+    'cls': 10,
+    'cl.': 10,
     'centilitre': 10,
     'centilitres': 10,
     'dl': 100,
+    'dls': 100,
+    'dl.': 100,
     'décilitre': 100,
     'décilitres': 100,
     'l': 1000,
+    'ls': 1000,
+    'l.': 1000,
+    'lit': 1000,
     'litre': 1000,
     'litres': 1000
 };
@@ -140,15 +181,47 @@ export function convertUnitQuantity(qty, fromUnit, toUnit) {
 }
 
 /**
+ * Convertit une quantité d'une unité à une autre pour l'interface (ex: bascule g <-> kg)
+ */
+export function convertQuantityBetweenUnits(qty, fromUnit, toUnit) {
+    const numQty = typeof qty === 'number' && Number.isFinite(qty) ? qty : parseFloat(qty);
+    if (isNaN(numQty) || numQty <= 0) return '';
+    const fromNorm = normalizeUnit(fromUnit);
+    const toNorm = normalizeUnit(toUnit);
+    if (fromNorm === toNorm || !fromNorm || !toNorm) return numQty;
+
+    const fromFactor = UNIT_FACTORS[fromNorm];
+    const toFactor = UNIT_FACTORS[toNorm];
+    if (fromFactor && toFactor) {
+        const converted = (numQty * fromFactor) / toFactor;
+        // Arrondi propre pour éviter les artefacts flottants (ex: 0.6000000000000001)
+        return parseFloat(converted.toFixed(4));
+    }
+    return numQty;
+}
+
+/**
  * Retourne la liste des unités d'utilisation compatibles avec une unité d'achat.
  */
 export function getCompatibleUnits(unit) {
     const norm = normalizeUnit(unit);
-    if (['g', 'kg', 'mg', 'gramme', 'kilo', 'kilogramme'].includes(norm)) {
+    const massUnits = ['g', 'gr', 'grs', 'gm', 'g.', 'gramme', 'grammes', 'kg', 'kgs', 'kilo', 'kilos', 'kg.', 'kilogramme', 'kilogrammes', 'mg', 'mgs', 'mg.'];
+    const volumeUnits = ['l', 'ls', 'l.', 'lit', 'litre', 'litres', 'cl', 'cls', 'cl.', 'centilitre', 'centilitres', 'ml', 'mls', 'ml.', 'millilitre', 'millilitres', 'dl', 'dls', 'dl.', 'décilitre', 'décilitres'];
+
+    if (massUnits.includes(norm)) {
+        if (['kg', 'kgs', 'kilo', 'kilos', 'kg.', 'kilogramme', 'kilogrammes'].includes(norm)) {
+            return ['kg', 'g'];
+        }
         return ['g', 'kg'];
     }
-    if (['l', 'cl', 'ml', 'dl', 'litre', 'centilitre', 'millilitre'].includes(norm)) {
-        return ['cl', 'ml', 'L'];
+    if (volumeUnits.includes(norm)) {
+        if (['l', 'ls', 'l.', 'lit', 'litre', 'litres'].includes(norm)) {
+            return ['L', 'cl', 'ml'];
+        }
+        if (['cl', 'cls', 'cl.', 'centilitre', 'centilitres'].includes(norm)) {
+            return ['cl', 'ml', 'L'];
+        }
+        return ['ml', 'cl', 'L'];
     }
     return [unit || 'pièce'];
 }

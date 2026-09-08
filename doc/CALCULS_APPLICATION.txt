@@ -92,12 +92,40 @@ depuis le formulaire du Tableau de bord (enregistrés dans le localStorage) :
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │ FORMULE BRUTE :                                                             │
-│   Coût matière brut (CM) = Σ (Prix ingrédient × Quantité)                   │
+│   Coût matière brut (CM) = Σ (Prix ingrédient × Quantité convertie)         │
 │                                                                             │
 │ DESCRIPTION :                                                               │
 │   Calcule le coût total brut de tous les ingrédients d'une recette.         │
 │   Les ingrédients n'ayant pas de prix spécifié sont ignorés (considérés     │
-│   comme valant 0.00 €).                                                     │
+│   comme valant 0.00 €). Le rendement au parage utile (%) est appliqué :    │
+│   Prix effectif = Prix d'achat ÷ (Rendement % ÷ 100).                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 2.2 - CONVERSIONS D'UNITÉS ET INTÉGRITÉ DES QUANTITÉS                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ Afin d'éviter les incohérences d'échelle (ex: 600g saisis au lieu de 0.6kg  │
+│ menant à des micro-prix de 0.01 €), l'application applique les règles :     │
+│                                                                             │
+│ 1. MOTEUR DE CONVERSION MULTI-UNITÉS :                                      │
+│    • Masse : 1 kg = 1 000 g = 1 000 000 mg (alias : gr, kilos, kg., g.)     │
+│    • Volume : 1 L = 10 dl = 100 cl = 1 000 ml (alias : litres, lit, etc.)   │
+│                                                                             │
+│ 2. CONVERSION DYNAMIQUE EN TEMPS RÉEL DANS LA MODALE :                      │
+│    Lorsqu'un utilisateur modifie le menu déroulant de l'unité dans la ligne │
+│    d'un ingrédient (ex: bascule de 'g' vers 'kg'), la valeur saisie dans le │
+│    champ quantité est instantanément recalculée (600 g → 0.6 kg) sans perte │
+│    ni saut d'échelle de prix.                                               │
+│                                                                             │
+│ 3. CONTRÔLE VISUEL PAR LIGNE :                                              │
+│    Chaque ligne d'ingrédient de la modale affiche en temps réel son sous-   │
+│    total calculé pour validation immédiate par le chef.                     │
+│                                                                             │
+│ 4. INTÉGRITÉ LORS DE LA DUPLICATION :                                       │
+│    La duplication d'une fiche technique préserve fidèlement les unités      │
+│    normalisées, les quantités réelles et le nombre de portions.             │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 

@@ -67,7 +67,7 @@ Base de données des matières premières. Permet la gestion complète (CRUD) de
 ### 🍳 C. Gestion des Recettes / Fiches Techniques (`recettes.html`)
 Cœur du système permettant d'élaborer les plats et de calculer leur rentabilité complète selon le modèle **Prime Cost SAS**.
 - **Données générales :** Nom, Nombre de portions, Etapes de préparation, Temps de production (minutes).
-- **Assemblage (Nomenclature) :** Ajout dynamique de lignes d'ingrédients puisés dans la Mercuriale avec quantité et unité associée.
+- **Assemblage (Nomenclature) :** Ajout dynamique de lignes d'ingrédients puisés dans la Mercuriale avec quantité et unité associée, conversion dynamique instantanée lors du changement d'unité (g ↔ kg, cl ↔ L) et affichage en temps réel du coût de chaque ligne.
 - **Calculs et KPIs en temps réel :**
     - Coût matière direct (Food Cost) total et par portion.
     - Coût main d'œuvre (Labor Cost) basé sur le temps de production × coût horaire chargé SAS (22.00 €/h).
@@ -76,11 +76,11 @@ Cœur du système permettant d'élaborer les plats et de calculer leur rentabili
     - Coût complet par portion (Full Cost).
     - Coefficient Multiplicateur (CM) pour fixer le Prix HT et TTC réel.
     - **Marge brute (%)** et **Marge nette réelle (%)** (après déduction de toutes les charges).
-    - **Rentabilité horaire (€/heure)** : Bénéfice net dégagé par l'entreprise par heure de cuisine travaillée.
+    - **Rentabilité horaire (€/heure)** : Bénéfice net dégagé par l'entreprise par heure de cuisine travaillée (affichée de manière compacte et fluide sans retour à la ligne).
     - **Prix de vente suggéré HT et TTC** pour atteindre la marge nette cible (25%).
-- **Duplication de recette :** Dupliquez une recette existante en 1 clic pour créer facilement de nouvelles déclinaisons.
-- **Tri interactif par colonnes :** Tri des recettes par Nom, Portions, Multiplicateur, Coût total, Coût/portion, PV HT, PV TTC, Marge brute, Marge nette, Rentabilité horaire.
-- **Gestion dynamique des allergènes :** Avertissement visuel ⚠️ et modale d'affichage détaillé des allergènes réunis par les ingrédients de la recette.
+- **Duplication de recette :** Dupliquez une recette existante en 1 clic pour créer facilement de nouvelles déclinaisons avec préservation stricte des unités, portions et conversions.
+- **Tri interactif par colonnes :** Tri des recettes par Nom, Portions (colonne compacte), Multiplicateur, Coût total, Coût/portion, PV HT, PV TTC, Marge brute, Marge nette, Rentabilité horaire.
+- **Gestion des allergènes :** Suivi réglementaire précis des 14 allergènes UE, consultables dans la modale détaillée de la recette pour préserver la lisibilité du tableau principal.
 
 ### 📋 D. Bons d'économat (`bon-economat.html`)
 Module logistique et de devis commercial.
