@@ -109,6 +109,9 @@
                     <button id="export-fixed-txt-btn" class="button-secondary btn-with-icon">
                         <span>📝</span> TXT Colonnes
                     </button>
+                    <button id="export-pdf-btn" class="button-secondary btn-with-icon">
+                        <span>📄</span> PDF
+                    </button>
                 </div>
             </div>
 
@@ -117,6 +120,11 @@
                 <div class="card-header-title">
                     <h3>🧺 Récapitulatif Global des Denrées (Économat)</h3>
                     <p class="card-description">Liste consolidée de tous les ingrédients nécessaires pour la commande ou le prélèvement en réserve.</p>
+                    <div class="export-actions">
+                        <button type="button" class="button-secondary btn-with-icon" data-print-mode="summary">
+                            <span>📄</span> PDF
+                        </button>
+                    </div>
                 </div>
                 <div class="table-container">
                     <table id="summary-table" class="bon-table">

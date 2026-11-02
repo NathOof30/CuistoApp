@@ -46,7 +46,7 @@ Pour exécuter l'application localement, vous devez la servir avec un serveur HT
 - **Tableau de bord :** Vue d'ensemble (KPIs), santé de la mercuriale, panneau de notifications, modification des **Paramètres Globaux de Simulation** (Coût horaire chargé SAS, Frais généraux, Marge nette cible, TVA) et bascule de **thème sombre/clair**.
 - **Mercuriale :** Ajoutez/éditez vos denrées, triez le tableau par en-tête de colonne, filtrez par recherche ou famille, sélectionnez les allergènes UE et saisissez des familles personnalisées avec `[Autre...]`.
 - **Recettes :** Créez vos fiches techniques, triez le tableau par colonne, dupliquez des recettes en 1 clic, observez les marges et rentabilités horaires recalculées en temps réel et consultez la modale d'allergènes et de détails KPIs.
-- **Bon d'économat :** Sélectionnez vos recettes et le nombre de portions, obtenez la synthèse des ingrédients et le devis commercial, puis exportez la commande au format **CSV**, **TXT tabulé (TSV)** ou **TXT à colonnes fixes**.
+- **Bon d'économat :** Sélectionnez vos recettes et le nombre de portions, obtenez la synthèse des ingrédients et le devis commercial, puis exportez le récapitulatif global ou chaque recette au format **CSV**, **TXT tabulé (TSV)**, **TXT à colonnes fixes** ou **PDF via l'impression du navigateur**.
 
 ---
 
@@ -64,7 +64,7 @@ Pour exécuter l'application localement, vous devez la servir avec un serveur HT
   - `dashboard.js` : Gestion des KPIs du tableau de bord, alertes mercuriale et sauvegarde des paramètres globaux.
   - `mercuriale.js` : Gestion du tableau de la mercuriale, filtres, tri par colonne et modales d'ingrédient.
   - `recettes.js` : Gestion du tableau des recettes, calcul des marges en direct, tri, duplication et modales de détails/allergènes.
-  - `bon-economat.js` : Calcul de la liste de courses agrégée, devis commercial et exports multi-formats (CSV/TXT).
+  - `bon-economat.js` : Calcul de la liste de courses agrégée, devis commercial et exports multi-formats (CSV/TXT/PDF), pour le récapitulatif global et chaque recette.
   - `data-management.js` : Import/export de fichiers JSON et modale d'initialisation.
   - `ui-feedback.js` : Notifications toast dynamiques et modales de confirmation.
 - `sample-data.json` : Jeu de données de démonstration initial.

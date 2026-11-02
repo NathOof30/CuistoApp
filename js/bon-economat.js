@@ -20,6 +20,29 @@ export function initBonEconomatPage() {
     if (exportFixedTxtBtn) {
         exportFixedTxtBtn.addEventListener('click', exportToFixedTXT);
     }
+    const exportPdfBtn = document.getElementById('export-pdf-btn');
+    if (exportPdfBtn) {
+        exportPdfBtn.addEventListener('click', () => printBonExport('full'));
+    }
+
+    document.getElementById('summary-breakdown').addEventListener('click', event => {
+        const button = event.target.closest('[data-print-mode]');
+        if (button) {
+            printBonExport(button.dataset.printMode);
+        }
+    });
+    document.getElementById('detailed-breakdown').addEventListener('click', event => {
+        const button = event.target.closest('[data-export-format]');
+        if (!button) return;
+
+        const recipeIndex = Number(button.dataset.recipeIndex);
+        const format = button.dataset.exportFormat;
+        if (format === 'pdf') {
+            printBonExport('recipe', recipeIndex);
+        } else {
+            exportRecipe(recipeIndex, format);
+        }
+    });
 }
 
 function addRecipeSelector() {
@@ -184,12 +207,18 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
     const summaryTbody = document.querySelector('#summary-table tbody');
 
     detailedContainer.innerHTML = '<h3 class="section-title">📖 Détail par Recette</h3>';
-    detailed.forEach(recipe => {
+    detailed.forEach((recipe, recipeIndex) => {
         let tableHTML = `
-            <div class="card bon-recipe-card">
+            <div class="card bon-recipe-card" id="recipe-breakdown-${recipeIndex}">
                 <div class="recipe-card-header">
                     <h4 class="recipe-card-title">🍽️ ${escapeHTML(recipe.name)}</h4>
                     <span class="badge-recipe-cost">Coût Recette : ${formatCurrency(recipe.totalCost)}</span>
+                </div>
+                <div class="export-actions recipe-export-actions">
+                    <button type="button" class="button-secondary btn-with-icon" data-export-format="csv" data-recipe-index="${recipeIndex}"><span>📊</span> CSV</button>
+                    <button type="button" class="button-secondary btn-with-icon" data-export-format="txt" data-recipe-index="${recipeIndex}"><span>📄</span> TXT Tabulé</button>
+                    <button type="button" class="button-secondary btn-with-icon" data-export-format="fixed-txt" data-recipe-index="${recipeIndex}"><span>📝</span> TXT Colonnes</button>
+                    <button type="button" class="button-secondary btn-with-icon" data-export-format="pdf" data-recipe-index="${recipeIndex}"><span>📄</span> PDF</button>
                 </div>
                 <div class="table-container">
                     <table class="bon-table">
@@ -266,6 +295,239 @@ function renderBonEconomat({ detailed, summary, globalTotalCost, totalSalePriceH
     }
 
     document.getElementById('bon-economat-results').classList.remove('hidden');
+}
+
+function getBonData() {
+    const bonDataString = document.getElementById('bon-economat-results').dataset.bonData;
+    if (!bonDataString) {
+        showToast("Veuillez d'abord générer un bon d'économat.", 'warning');
+        return null;
+    }
+    return JSON.parse(bonDataString);
+}
+
+function exportRecipe(recipeIndex, format) {
+    const bonData = getBonData();
+    const recipe = bonData?.detailed?.[recipeIndex];
+    if (!recipe) return;
+
+    const rows = recipe.ingredients.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+        totalCost: item.totalCost
+    }));
+    const baseName = `bon_economat_${recipe.name.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '')}_${Date.now()}`;
+
+    if (format === 'csv') {
+        const content = [
+            'Intitulé ingrédient,Quantité,Unité,Prix unitaire HT,Coût total HT',
+            ...rows.map(item => [
+                `"${String(item.name).replace(/"/g, '""')}"`,
+                formatQuantityPlain(item.quantity, item.unit),
+                item.unit,
+                Number(item.unitPrice || 0).toFixed(2),
+                Number(item.totalCost || 0).toFixed(2)
+            ].join(',')),
+            `Total recette,,,,${Number(recipe.totalCost || 0).toFixed(2)}`
+        ].join('\r\n');
+        downloadTextFile(content, `${baseName}.csv`, 'text/csv;charset=utf-8');
+    } else if (format === 'txt') {
+        const content = [
+            ['Intitulé ingrédient', 'Quantité', 'Unité', 'Prix unitaire HT', 'Coût total HT'].join('\t'),
+            ...rows.map(item => [
+                String(item.name).replace(/[\t\n\r]/g, ' ').trim(),
+                formatQuantityPlain(item.quantity, item.unit),
+                String(item.unit).replace(/[\t\n\r]/g, ' ').trim(),
+                Number(item.unitPrice || 0).toFixed(2),
+                Number(item.totalCost || 0).toFixed(2)
+            ].join('\t')),
+            ['Total recette', '', '', '', Number(recipe.totalCost || 0).toFixed(2)].join('\t')
+        ].join('\r\n');
+        downloadTextFile(content, `${baseName}.txt`, 'text/tab-separated-values;charset=utf-8');
+    } else if (format === 'fixed-txt') {
+        const nameWidth = Math.max(20, Math.min(40, Math.max('Intitulé ingrédient'.length, ...rows.map(item => String(item.name).length))));
+        const widths = [nameWidth, 14, 8, 18, 14];
+        const padEnd = (value, width) => String(value).padEnd(width, ' ');
+        const padStart = (value, width) => String(value).padStart(width, ' ');
+        const formatRow = (item) => [
+            padEnd(String(item.name).slice(0, widths[0]), widths[0]),
+            padStart(formatQuantityPlain(item.quantity, item.unit), widths[1]),
+            padEnd(String(item.unit).slice(0, widths[2]), widths[2]),
+            padStart(Number(item.unitPrice || 0).toFixed(2), widths[3]),
+            padStart(Number(item.totalCost || 0).toFixed(2), widths[4])
+        ].join('  ');
+        const header = [
+            padEnd('Intitulé ingrédient', widths[0]),
+            padStart('Quantité', widths[1]),
+            padEnd('Unité', widths[2]),
+            padStart('Prix unitaire HT', widths[3]),
+            padStart('Coût total HT', widths[4])
+        ].join('  ');
+        const separator = widths.map(width => ''.padEnd(width, '-')).join('  ');
+        const total = [
+            padEnd('Total recette', widths[0]),
+            padEnd('', widths[1]),
+            padEnd('', widths[2]),
+            padEnd('', widths[3]),
+            padStart(Number(recipe.totalCost || 0).toFixed(2), widths[4])
+        ].join('  ');
+        downloadTextFile([header, separator, ...rows.map(formatRow), separator, total].join('\r\n'), `${baseName}_fixed.txt`, 'text/plain;charset=utf-8');
+    }
+}
+
+function downloadTextFile(content, filename, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function printBonExport(mode, recipeIndex = null) {
+    const bonData = getBonData();
+    if (!bonData) return;
+
+    let documentHTML;
+    if (mode === 'recipe') {
+        const recipe = bonData.detailed?.[recipeIndex];
+        if (!recipe) return;
+        documentHTML = buildRecipePrintDocument(recipe);
+    } else {
+        documentHTML = buildGlobalPrintDocument(bonData, mode === 'summary');
+    }
+
+    const printFrame = document.createElement('iframe');
+    printFrame.setAttribute('title', 'Document à imprimer');
+    printFrame.className = 'bon-print-frame';
+    document.body.appendChild(printFrame);
+
+    const printStyles = `
+        @page { size: A4 portrait; margin: 12mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #111827; background: #fff; font-family: Arial, Helvetica, sans-serif; font-size: 9pt; }
+        .bon-print-sheet { width: 100%; }
+        .bon-print-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111827; padding-bottom: 8pt; margin-bottom: 8pt; }
+        .bon-print-header h1 { font-size: 17pt; margin: 0 0 3pt; }
+        .bon-print-header p, .bon-print-subtitle { margin: 0; color: #4b5563; }
+        .bon-print-meta { text-align: right; font-size: 8pt; }
+        .bon-print-meta span { display: block; color: #4b5563; }
+        .bon-print-sheet h2 { font-size: 12pt; margin: 14pt 0 6pt; page-break-after: avoid; }
+        .bon-print-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 8pt; }
+        .bon-print-table th, .bon-print-table td { border: 1px solid #9ca3af; padding: 5pt 6pt; text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+        .bon-print-table th { background: #f3f4f6; font-weight: 700; }
+        .bon-print-table .number { text-align: right; }
+        .bon-print-table tfoot th { background: #f9fafb; }
+        .bon-print-total { display: flex; justify-content: space-between; border-top: 2px solid #111827; border-bottom: 1px solid #9ca3af; padding: 7pt 0; margin: 8pt 0 16pt; }
+        .bon-print-section { page-break-inside: avoid; margin-top: 14pt; }
+    `;
+
+    printFrame.onload = () => {
+        printFrame.contentWindow.focus();
+        printFrame.contentWindow.onafterprint = cleanup;
+        printFrame.contentWindow.print();
+    };
+
+    const printDocument = printFrame.contentDocument;
+    printDocument.open();
+    printDocument.write(`<!doctype html><html lang="fr"><head><meta charset="UTF-8"><title>Bon d'économat</title><style>${printStyles}</style></head><body>${documentHTML}</body></html>`);
+    printDocument.close();
+
+    const cleanup = () => {
+        window.removeEventListener('afterprint', cleanup);
+        printFrame.remove();
+    };
+    window.addEventListener('afterprint', cleanup);
+}
+
+function printDocumentHeader(title, subtitle) {
+    return `
+        <header class="bon-print-header">
+            <div>
+                <h1>Bon d'économat</h1>
+                <p>${escapeHTML(title)}</p>
+            </div>
+            <div class="bon-print-meta">
+                <span>Date d'édition</span>
+                <strong>${new Date().toLocaleDateString('fr-FR')}</strong>
+            </div>
+        </header>
+        <p class="bon-print-subtitle">${escapeHTML(subtitle)}</p>
+    `;
+}
+
+function buildSummaryPrintTable(summary) {
+    return `
+        <table class="bon-print-table">
+            <thead>
+                <tr><th>Nom de la denrée</th><th class="number">Quantité totale</th><th>Unité</th><th class="number">Coût total HT</th></tr>
+            </thead>
+            <tbody>
+                ${[...summary].sort((a, b) => a.name.localeCompare(b.name)).map(item => `
+                    <tr>
+                        <td>${escapeHTML(item.name)}</td>
+                        <td class="number">${escapeHTML(formatQuantity(item.quantity, item.unit))}</td>
+                        <td>${escapeHTML(item.unit)}</td>
+                        <td class="number">${formatCurrency(item.totalCost)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function buildRecipePrintTable(recipe) {
+    return `
+        <table class="bon-print-table">
+            <thead>
+                <tr><th>Intitulé ingrédient</th><th class="number">Quantité</th><th>Unité</th><th class="number">Prix unitaire HT</th><th class="number">Coût total HT</th></tr>
+            </thead>
+            <tbody>
+                ${recipe.ingredients.map(item => `
+                    <tr>
+                        <td>${escapeHTML(item.name)}</td>
+                        <td class="number">${escapeHTML(formatQuantity(item.quantity, item.unit))}</td>
+                        <td>${escapeHTML(item.unit)}</td>
+                        <td class="number">${formatUnitPrice(item.unitPrice)}</td>
+                        <td class="number">${formatCurrency(item.totalCost)}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+            <tfoot><tr><th colspan="4">Coût ingrédients total recette</th><th class="number">${formatCurrency(recipe.totalCost)}</th></tr></tfoot>
+        </table>
+    `;
+}
+
+function buildRecipePrintDocument(recipe) {
+    return `<article class="bon-print-sheet">
+        ${printDocumentHeader(`Détail de la recette : ${recipe.name}`, 'Liste des ingrédients nécessaires et coût de revient HT.')}
+        <h2>${escapeHTML(recipe.name)}</h2>
+        ${buildRecipePrintTable(recipe)}
+    </article>`;
+}
+
+function buildGlobalPrintDocument(bonData, summaryOnly) {
+    const recipesHTML = summaryOnly ? '' : bonData.detailed.map(recipe => `
+        <section class="bon-print-section">
+            <h2>${escapeHTML(recipe.name)}</h2>
+            ${buildRecipePrintTable(recipe)}
+        </section>
+    `).join('');
+    return `<article class="bon-print-sheet">
+        ${printDocumentHeader(
+            summaryOnly ? 'Récapitulatif global des denrées' : 'Récapitulatif complet',
+            summaryOnly ? 'Liste consolidée des ingrédients à prélever ou commander.' : 'Synthèse des denrées et détail des recettes sélectionnées.'
+        )}
+        <h2>Récapitulatif Global des Denrées (Économat)</h2>
+        ${buildSummaryPrintTable(bonData.summary)}
+        <p class="bon-print-total"><strong>Coût total des denrées (HT)</strong><strong>${formatCurrency(bonData.globalTotalCost)}</strong></p>
+        ${recipesHTML}
+    </article>`;
 }
 
 
