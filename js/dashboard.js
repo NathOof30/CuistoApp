@@ -1,10 +1,10 @@
 import {
     mercuriale, recipes, calculateRecipeCost, calculateNetMargin,
     calculateActualPriceHTPerServing, calculateSuggestedPrice,
-    getIngredientById, updateGlobalSettings,
+    applyGlobalSettings,
     VAT_RATE, CHARGED_HOURLY_RATE, OVERHEAD_RATE, TARGET_NET_MARGIN
 } from '../data.js';
-import { formatCurrency, escapeHTML, formatPercent } from './common.js';
+import { formatCurrency, escapeHTML, formatPercent, formatRate } from './common.js';
 import { showToast } from './ui-feedback.js';
 
 export function initDashboard() {
@@ -32,6 +32,25 @@ export function initDashboard() {
     }
 }
 
+export function refreshDashboard() {
+    syncSettingsFormValues();
+    displayStats();
+    renderTopRecipes();
+    displayNotifications();
+}
+
+function syncSettingsFormValues() {
+    const hourlyRateInput = document.getElementById('settings-hourly-rate');
+    const overheadInput = document.getElementById('settings-overhead');
+    const targetMarginInput = document.getElementById('settings-target-margin');
+    const vatInput = document.getElementById('settings-vat');
+
+    if (hourlyRateInput) hourlyRateInput.value = CHARGED_HOURLY_RATE.toFixed(2);
+    if (overheadInput) overheadInput.value = parseFloat((OVERHEAD_RATE * 100).toFixed(2));
+    if (targetMarginInput) targetMarginInput.value = parseFloat((TARGET_NET_MARGIN * 100).toFixed(2));
+    if (vatInput) vatInput.value = parseFloat((VAT_RATE * 100).toFixed(2));
+}
+
 function initSettingsForm() {
     const form = document.getElementById('global-settings-form');
     if (!form) return;
@@ -41,11 +60,7 @@ function initSettingsForm() {
     const targetMarginInput = document.getElementById('settings-target-margin');
     const vatInput = document.getElementById('settings-vat');
 
-    // Pré-remplir avec les valeurs courantes
-    if (hourlyRateInput) hourlyRateInput.value = CHARGED_HOURLY_RATE.toFixed(2);
-    if (overheadInput) overheadInput.value = (OVERHEAD_RATE * 100).toFixed(1);
-    if (targetMarginInput) targetMarginInput.value = (TARGET_NET_MARGIN * 100).toFixed(1);
-    if (vatInput) vatInput.value = (VAT_RATE * 100).toFixed(1);
+    syncSettingsFormValues();
 
     form.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -55,26 +70,33 @@ function initSettingsForm() {
         const margin = parseFloat(targetMarginInput.value);
         const vat = parseFloat(vatInput.value);
 
-        if (isNaN(hr) || hr < 0 || isNaN(oh) || oh < 0 || oh > 100 || isNaN(margin) || margin < 0 || margin > 100 || isNaN(vat) || vat < 0 || vat > 100) {
+        if (!Number.isFinite(hr) || hr < 0 || !Number.isFinite(oh) || oh < 0 || oh > 100 || !Number.isFinite(vat) || vat < 0 || vat > 100) {
             showToast('Veuillez saisir des valeurs valides.', 'error');
             return;
         }
+        if (!Number.isFinite(margin) || margin < 0 || margin >= 100) {
+            showToast('La marge nette cible doit être comprise entre 0 % et 99 %.', 'error');
+            return;
+        }
 
-        // Sauvegarder dans localStorage
-        localStorage.setItem('settings-charged-hourly-rate', hr.toString());
-        localStorage.setItem('settings-overhead-rate', oh.toString());
-        localStorage.setItem('settings-target-net-margin', margin.toString());
-        localStorage.setItem('settings-vat-rate', vat.toString());
-
-        // Mettre à jour les live bindings de data.js
-        updateGlobalSettings();
+        // Sauvegarder de façon sécurisée et mettre à jour les live bindings de data.js
+        const saved = applyGlobalSettings({
+            chargedHourlyRate: hr,
+            overheadRate: oh,
+            targetNetMargin: margin,
+            vatRate: vat
+        });
+        if (!saved) {
+            showToast('Impossible de sauvegarder les paramètres (stockage local saturé).', 'error');
+            return;
+        }
 
         // Rafraîchir l'affichage du dashboard
         displayStats();
         renderTopRecipes();
         displayNotifications();
 
-        showToast('Paramètres de simulation enregistrés et appliqués !', 'success', 2000);
+        showToast('Paramètres de simulation enregistrés et appliqués.', 'success', 2000);
     });
 }
 
@@ -94,6 +116,7 @@ function displayStats() {
     // Analyse par recette avec MO
     const recipesWithTime = recipes.filter(r => r.productionTime && r.productionTime > 0);
     const targetPercent = TARGET_NET_MARGIN * 100;
+    const mediumThreshold = targetPercent * 0.5;
 
     let profitableCount = 0;
     let deficitCount = 0;
@@ -117,8 +140,8 @@ function displayStats() {
     if (profitableEl) profitableEl.textContent = profitableCount;
     if (profitableSubEl) {
         profitableSubEl.textContent = recipesWithTime.length > 0
-            ? `${profitableCount} sur ${recipesWithTime.length} avec MO`
-            : `Cible : ${targetPercent.toFixed(0)}%`;
+            ? `${profitableCount} sur ${recipesWithTime.length} (cible ≥ ${formatRate(targetPercent)})`
+            : `Cible : ${formatRate(targetPercent)}`;
     }
 
     if (deficitEl) deficitEl.textContent = deficitCount;
@@ -131,7 +154,7 @@ function displayStats() {
     if (avgMarginEl) {
         avgMarginEl.textContent = avgMargin !== null ? formatPercent(avgMargin) : 'N/A';
         avgMarginEl.style.color = avgMargin !== null
-            ? (avgMargin >= 20 ? 'var(--margin-high)' : (avgMargin >= 10 ? 'var(--margin-medium)' : 'var(--margin-low)'))
+            ? (avgMargin >= targetPercent ? 'var(--margin-high)' : (avgMargin >= mediumThreshold ? 'var(--margin-medium)' : 'var(--margin-low)'))
             : 'var(--text-color)';
     }
     if (marginSubEl) {
@@ -148,12 +171,15 @@ function renderTopRecipes() {
     if (recipes.length === 0) {
         container.innerHTML = `
             <div class="db-empty-state">
-                <p>🍳 Aucune recette enregistrée pour le moment.</p>
+                <p>Aucune recette enregistrée pour le moment.</p>
                 <a href="recettes.html?action=add" class="button-primary" style="margin-top:0.75rem; display:inline-flex;">+ Créer une recette</a>
             </div>
         `;
         return;
     }
+
+    const targetPercent = TARGET_NET_MARGIN * 100;
+    const mediumThreshold = targetPercent * 0.5;
 
     // Calculer et classer les recettes
     const rankedRecipes = [...recipes].map(recipe => {
@@ -185,7 +211,7 @@ function renderTopRecipes() {
         let marginBadge = '';
 
         if (item.hasTime) {
-            const pillClass = item.netMargin >= 20 ? 'high' : (item.netMargin >= 10 ? 'medium' : 'low');
+            const pillClass = item.netMargin >= targetPercent ? 'high' : (item.netMargin >= mediumThreshold ? 'medium' : 'low');
             marginBadge = `<span class="db-margin-pill ${pillClass}">${formatPercent(item.netMargin)}</span>`;
         } else {
             marginBadge = `<span class="db-margin-pill medium" title="Marge brute (temps de production non renseigné)">${formatPercent(item.grossMargin)} <small style="font-size:0.7rem;">(brute)</small></span>`;
@@ -197,7 +223,7 @@ function renderTopRecipes() {
                     <div class="db-top-row-name">
                         <span class="db-rank-badge rank-${rank}">${rank}</span>
                         <span>${escapeHTML(r.name)}</span>
-                        <span class="db-view-link">➔</span>
+                        <span class="db-view-link">→</span>
                     </div>
                 </td>
                 <td class="font-mono" style="font-weight:600;">${formatCurrency(item.pvHT)}</td>
@@ -240,7 +266,7 @@ export function displayNotifications() {
 
     const alerts = [];
 
-    // 1. Recettes déficitaires (CRITIQUE 🔴)
+    // 1. Recettes déficitaires
     recipes.forEach(recipe => {
         if (recipe.productionTime && recipe.productionTime > 0) {
             const netMargin = calculateNetMargin(recipe);
@@ -248,43 +274,42 @@ export function displayNotifications() {
                 const suggestedPrice = calculateSuggestedPrice(recipe);
                 alerts.push({
                     type: 'critical',
-                    icon: '🚨',
+                    label: 'Alerte',
                     html: `Recette <strong>${escapeHTML(recipe.name)}</strong> déficitaire (${formatPercent(netMargin)}). Prix conseillé : <strong>${formatCurrency(suggestedPrice.ht)} HT</strong>. <a href="recettes.html" class="db-alert-link" data-edit-id="${recipe.id}">Modifier</a>`
                 });
             }
         }
     });
 
-    // 2. Recettes sans temps de production (AVERTISSEMENT ⏱️)
+    // 2. Recettes sans temps de production
     recipes.forEach(recipe => {
         if (!recipe.productionTime || recipe.productionTime <= 0) {
             alerts.push({
                 type: 'warning',
-                icon: '⏱️',
+                label: 'Temps',
                 html: `Temps de production non renseigné pour <strong>${escapeHTML(recipe.name)}</strong> (Prime Cost incomplet). <a href="recettes.html" class="db-alert-link" data-edit-id="${recipe.id}">Renseigner</a>`
             });
         }
     });
 
-    // 3. Denrées sans prix en mercuriale (INFO / AVERTISSEMENT 🥕)
+    // 3. Denrées sans prix en mercuriale
     const unpricedIngredients = mercuriale.filter(ing => ing.price === null || ing.price === undefined || ing.price === '');
     if (unpricedIngredients.length > 0) {
         const names = unpricedIngredients.slice(0, 3).map(i => escapeHTML(i.name)).join(', ');
         const extra = unpricedIngredients.length > 3 ? ` et ${unpricedIngredients.length - 3} autre(s)` : '';
         alerts.push({
             type: 'info',
-            icon: '🥕',
+            label: 'Prix',
             html: `${unpricedIngredients.length} denrée(s) sans prix : <strong>${names}${extra}</strong>. <a href="mercuriale.html">Mettre à jour la mercuriale</a>`
         });
     }
 
-    // 4. Aucune alerte ?
+    // 4. Aucune alerte
     if (alerts.length === 0) {
         alertsContainer.innerHTML = `
             <div class="db-alert-item ok">
-                <span class="db-alert-icon">✨</span>
                 <div class="db-alert-body">
-                    <strong>Tout est optimal !</strong> Toutes vos fiches techniques sont complètes et rentables.
+                    <strong>Tout est optimal.</strong> Toutes vos fiches techniques sont complètes et rentables.
                 </div>
             </div>
         `;
@@ -296,7 +321,7 @@ export function displayNotifications() {
         const div = document.createElement('div');
         div.className = `db-alert-item ${alert.type}`;
         div.innerHTML = `
-            <span class="db-alert-icon">${alert.icon}</span>
+            <span class="db-alert-icon" aria-hidden="true">${alert.type === 'critical' ? '!' : (alert.type === 'warning' ? '•' : 'i')}</span>
             <div class="db-alert-body">${alert.html}</div>
         `;
         alertsContainer.appendChild(div);

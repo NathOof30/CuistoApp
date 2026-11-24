@@ -1,14 +1,11 @@
+export function roundCurrency(amount) {
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) return 0;
+    const rounded = Math.sign(amount) * Math.round((Math.abs(amount) + 1e-12) * 100) / 100;
+    return Object.is(rounded, -0) ? 0 : rounded;
+}
+
 export function formatCurrency(amount) {
-    if (typeof amount !== 'number') {
-        amount = 0;
-    }
-    // Arrondir à la dizaine de centimes supérieure (0.10 €)
-    let rounded = Math.ceil(amount * 10) / 10;
-    // Si le prix unitaire est très faible (inférieur à 10 cts, ex: ingrédients au gramme),
-    // arrondir au centime supérieur pour éviter de gonfler artificiellement à 0.10 €
-    if (amount > 0 && amount < 0.10) {
-        rounded = Math.ceil(amount * 100) / 100;
-    }
+    const rounded = roundCurrency(amount);
     return new Intl.NumberFormat('fr-FR', {
         style: 'currency',
         currency: 'EUR',
@@ -18,11 +15,11 @@ export function formatCurrency(amount) {
 }
 
 export function formatUnitPrice(amount) {
-    if (typeof amount !== 'number' || isNaN(amount)) {
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) {
         amount = 0;
     }
-    if (amount <= 0) return '0,00 €';
-    if (amount < 0.05) {
+    if (amount <= 0) return formatCurrency(0);
+    if (amount < 0.01) {
         return new Intl.NumberFormat('fr-FR', {
             style: 'currency',
             currency: 'EUR',
@@ -33,15 +30,19 @@ export function formatUnitPrice(amount) {
     return formatCurrency(amount);
 }
 
-// Format avec 3 décimales désormais aligné sur 2 décimales pour respecter la consigne
+// Alias historique aligné sur l'arrondi standard à 2 décimales
 export function formatCurrency3(amount) {
     return formatCurrency(amount);
 }
 
 const COUNTABLE_UNITS = [
-    'piece', 'pieces', 'pièce', 'pièces', 'boite', 'boîte', 'boites', 'boîtes',
-    'unite', 'unité', 'unites', 'unités', 'portion', 'portions', 'pcs', 'pc', 'pce', 'pces',
-    'lot', 'lots', 'botte', 'bottes', 'sachet', 'sachets', 'bouteille', 'bouteilles'
+    'piece', 'pieces', 'pièce', 'pièces', 'p',
+    'boite', 'boîte', 'boites', 'boîtes',
+    'barquette', 'barquettes',
+    'unite', 'unité', 'unites', 'unités',
+    'portion', 'portions', 'pcs', 'pc', 'pce', 'pces',
+    'lot', 'lots', 'botte', 'bottes',
+    'sachet', 'sachets', 'bouteille', 'bouteilles'
 ];
 
 function normalizeUnit(unit) {
@@ -55,19 +56,96 @@ export function isCountUnit(unit) {
 
 function formatQuantityValue(value, unit) {
     const numericValue = typeof value === 'number' && Number.isFinite(value) ? value : 0;
-    const digits = isCountUnit(unit) ? 0 : 3;
+
+    if (isCountUnit(unit)) {
+        const roundedInt = Math.round(numericValue);
+        if (Math.abs(numericValue - roundedInt) < 1e-6) {
+            const cleanInt = Object.is(roundedInt, -0) ? 0 : roundedInt;
+            return {
+                plain: String(cleanInt),
+                localized: new Intl.NumberFormat('fr-FR', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(cleanInt)
+            };
+        }
+
+        const rounded2 = roundCurrency(numericValue);
+        if (rounded2 === 0 && numericValue !== 0) {
+            const rounded3 = parseFloat(numericValue.toFixed(3));
+            return {
+                plain: String(rounded3),
+                localized: new Intl.NumberFormat('fr-FR', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 3
+                }).format(rounded3)
+            };
+        }
+
+        const clean2 = parseFloat(rounded2.toFixed(2));
+        return {
+            plain: String(clean2),
+            localized: new Intl.NumberFormat('fr-FR', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            }).format(clean2)
+        };
+    }
+
     return {
-        plain: numericValue.toFixed(digits),
+        plain: numericValue.toFixed(3),
         localized: new Intl.NumberFormat('fr-FR', {
-            minimumFractionDigits: digits,
-            maximumFractionDigits: digits
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3
         }).format(numericValue)
     };
 }
 
+// Format poids en kg (avec option d'affichage des grammes entre parenthèses)
+export function formatWeight(weightKg, { includeGrams = false, withUnit = true, showZero = false } = {}) {
+    if (typeof weightKg !== 'number' || !Number.isFinite(weightKg) || weightKg < 0) {
+        return '—';
+    }
+    if (weightKg === 0 && !showZero) {
+        return '—';
+    }
+    const kgStr = new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3
+    }).format(weightKg);
+    const base = withUnit ? `${kgStr} kg` : kgStr;
+    if (includeGrams) {
+        const grams = Math.round(weightKg * 1000);
+        const gramsStr = new Intl.NumberFormat('fr-FR', {
+            maximumFractionDigits: 0
+        }).format(grams);
+        return `${base} (${gramsStr} g)`;
+    }
+    return base;
+}
+
+// Format taux en pourcentage sans tronquer les décimales utiles (ex: 5,5 % ou 10 %)
+export function formatRate(ratePercent) {
+    const numeric = typeof ratePercent === 'number' && Number.isFinite(ratePercent) ? ratePercent : 0;
+    const rounded = roundCurrency(numeric);
+    return `${new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+    }).format(rounded)} %`;
+}
+
+// Format facteur multiplicateur/taux décimal sans tronquer (ex: 1,055 ou 1,10)
+export function formatDecimalFactor(value) {
+    const numeric = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+    return new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4
+    }).format(numeric);
+}
+
 // Format pourcentage avec précision paramétrable
 export function formatPercent(value, decimals = 1) {
-    if (typeof value !== 'number') {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
         value = 0;
     }
     return value.toFixed(decimals) + '%';
@@ -75,7 +153,7 @@ export function formatPercent(value, decimals = 1) {
 
 // Format durée en minutes vers heures:minutes
 export function formatDuration(minutes) {
-    if (typeof minutes !== 'number' || minutes <= 0) {
+    if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) {
         return 'N/A';
     }
     const hrs = Math.floor(minutes / 60);
@@ -87,9 +165,12 @@ export function formatDuration(minutes) {
 }
 
 export function escapeHTML(unsafe) {
-    const div = document.createElement('div');
-    div.textContent = String(unsafe ?? '');
-    return div.innerHTML;
+    return String(unsafe ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // Format quantité pour l'affichage dans l'interface
@@ -102,20 +183,15 @@ export function formatQuantityPlain(value, unit) {
     return formatQuantityValue(value, unit).plain;
 }
 
-// Alias explicite pour les champs <input type="number">
+// Formatage propre pour les champs <input type="number"> sans jamais arrondir de force les unités comptables
 export function formatQuantityInput(value, unit) {
     const numericValue = typeof value === 'number' && Number.isFinite(value) ? value : parseFloat(value) || 0;
-    if (isCountUnit(unit)) {
-        return String(Math.round(numericValue));
-    }
-    // Éviter les traînées de zéros inutiles tout en restant propre (ex: 600 ou 0.6 au lieu de 600.000)
     const formatted = parseFloat(numericValue.toFixed(4));
-    return String(formatted);
+    return String(Object.is(formatted, -0) ? 0 : formatted);
 }
 
-// === MOTEUR DE CONVERSION D'UNITÉS CULINAIRES ===
-const UNIT_FACTORS = {
-    // Masse (unité de base: g)
+// === MOTEUR DE CONVERSION D'UNITÉS CULINAIRES (MASSES ET VOLUMES STRICTEMENT SÉPARÉS) ===
+const MASS_FACTORS = {
     'g': 1,
     'gr': 1,
     'grs': 1,
@@ -132,9 +208,10 @@ const UNIT_FACTORS = {
     'kilogrammes': 1000,
     'mg': 0.001,
     'mgs': 0.001,
-    'mg.': 0.001,
+    'mg.': 0.001
+};
 
-    // Volume (unité de base: ml)
+const VOLUME_FACTORS = {
     'ml': 1,
     'mls': 1,
     'ml.': 1,
@@ -158,8 +235,16 @@ const UNIT_FACTORS = {
     'litres': 1000
 };
 
+export function getUnitFamily(unit) {
+    const norm = normalizeUnit(unit);
+    if (MASS_FACTORS[norm] !== undefined) return 'mass';
+    if (VOLUME_FACTORS[norm] !== undefined) return 'volume';
+    return 'other';
+}
+
 /**
  * Convertit une quantité depuis l'unité d'utilisation vers l'unité d'achat.
+ * Empêche toute conversion inter-dimensions (masse <-> volume).
  * Exemple: convertUnitQuantity(250, 'g', 'kg') => 0.25 (car 250 g = 0.25 kg)
  */
 export function convertUnitQuantity(qty, fromUnit, toUnit) {
@@ -169,12 +254,12 @@ export function convertUnitQuantity(qty, fromUnit, toUnit) {
 
     if (fromNorm === toNorm || !fromNorm || !toNorm) return numQty;
 
-    const fromFactor = UNIT_FACTORS[fromNorm];
-    const toFactor = UNIT_FACTORS[toNorm];
+    if (MASS_FACTORS[fromNorm] !== undefined && MASS_FACTORS[toNorm] !== undefined) {
+        return (numQty * MASS_FACTORS[fromNorm]) / MASS_FACTORS[toNorm];
+    }
 
-    if (fromFactor && toFactor) {
-        const baseQty = numQty * fromFactor;
-        return baseQty / toFactor;
+    if (VOLUME_FACTORS[fromNorm] !== undefined && VOLUME_FACTORS[toNorm] !== undefined) {
+        return (numQty * VOLUME_FACTORS[fromNorm]) / VOLUME_FACTORS[toNorm];
     }
 
     return numQty;
@@ -199,13 +284,16 @@ export function convertQuantityBetweenUnits(qty, fromUnit, toUnit) {
         return numQty;
     }
 
-    const fromFactor = UNIT_FACTORS[fromNorm];
-    const toFactor = UNIT_FACTORS[toNorm];
-    if (fromFactor && toFactor) {
-        const converted = (numQty * fromFactor) / toFactor;
-        // Arrondi propre pour éviter les artefacts flottants (ex: 0.6000000000000001)
+    if (MASS_FACTORS[fromNorm] !== undefined && MASS_FACTORS[toNorm] !== undefined) {
+        const converted = (numQty * MASS_FACTORS[fromNorm]) / MASS_FACTORS[toNorm];
         return parseFloat(converted.toFixed(4));
     }
+
+    if (VOLUME_FACTORS[fromNorm] !== undefined && VOLUME_FACTORS[toNorm] !== undefined) {
+        const converted = (numQty * VOLUME_FACTORS[fromNorm]) / VOLUME_FACTORS[toNorm];
+        return parseFloat(converted.toFixed(4));
+    }
+
     return numQty;
 }
 
@@ -214,16 +302,14 @@ export function convertQuantityBetweenUnits(qty, fromUnit, toUnit) {
  */
 export function getCompatibleUnits(unit) {
     const norm = normalizeUnit(unit);
-    const massUnits = ['g', 'gr', 'grs', 'gm', 'g.', 'gramme', 'grammes', 'kg', 'kgs', 'kilo', 'kilos', 'kg.', 'kilogramme', 'kilogrammes', 'mg', 'mgs', 'mg.'];
-    const volumeUnits = ['l', 'ls', 'l.', 'lit', 'litre', 'litres', 'cl', 'cls', 'cl.', 'centilitre', 'centilitres', 'ml', 'mls', 'ml.', 'millilitre', 'millilitres', 'dl', 'dls', 'dl.', 'décilitre', 'décilitres'];
 
-    if (massUnits.includes(norm)) {
+    if (MASS_FACTORS[norm] !== undefined) {
         if (['kg', 'kgs', 'kilo', 'kilos', 'kg.', 'kilogramme', 'kilogrammes'].includes(norm)) {
             return ['kg', 'g'];
         }
         return ['g', 'kg'];
     }
-    if (volumeUnits.includes(norm)) {
+    if (VOLUME_FACTORS[norm] !== undefined) {
         if (['l', 'ls', 'l.', 'lit', 'litre', 'litres'].includes(norm)) {
             return ['L', 'cl', 'ml'];
         }
@@ -234,4 +320,3 @@ export function getCompatibleUnits(unit) {
     }
     return [unit || 'pièce'];
 }
-

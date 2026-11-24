@@ -23,8 +23,9 @@
     <main id="app-container">
         <div class="page-header">
             <div>
-                <h2>🥕 Mercuriale & Denrées</h2>
-                <p class="page-subtitle">Gérez vos ingrédients, prix unitaires HT, familles et allergènes réglementaires UE.</p>
+                <h2>Mercuriale &amp; Denrées</h2>
+                <p class="page-subtitle">Gérez vos ingrédients, prix unitaires HT, familles et allergènes réglementaires
+                    UE.</p>
             </div>
             <div class="header-actions">
                 <input type="search" id="search-ingredient" placeholder="Rechercher une denrée...">
@@ -82,30 +83,35 @@
                             placeholder="100% (ex: 80% si 20% pertes)">
                     </div>
                     <div class="form-group">
-                        <label for="ingredient-weight-kg">Poids brut / unité (kg) <small style="color:var(--text-light); font-weight:normal;">— optionnel</small></label>
+                        <label for="ingredient-weight-kg">Poids brut / unité (kg) <small
+                                style="color:var(--text-light); font-weight:normal;">— optionnel</small></label>
                         <input type="number" id="ingredient-weight-kg" step="0.001" min="0"
                             placeholder="Ex: 0.060 pour 1 œuf = 60g">
-                        <small class="form-hint" style="margin-top:0.3rem; display:block;">Renseignez pour les unités non pondérales (pièce, boîte, lot…) afin d'inclure cet ingrédient dans le calcul du prix au kg total d'une recette.</small>
+                        <small class="form-hint" style="margin-top:0.3rem; display:block;">Renseignez pour les unités
+                            non pondérales (pièce, boîte, lot…) afin d'inclure cet ingrédient dans le calcul du prix au
+                            kg total d'une recette.</small>
                     </div>
                     <div class="form-group">
                         <label for="ingredient-family-select">Famille</label>
                         <select id="ingredient-family-select">
                             <!-- Populated dynamically -->
                         </select>
-                        <input type="text" id="ingredient-family-custom" placeholder="Nouvelle famille..." style="display: none; margin-top: 0.5rem;">
+                        <input type="text" id="ingredient-family-custom" placeholder="Nouvelle famille..."
+                            style="display: none; margin-top: 0.5rem;">
                     </div>
                     <div class="form-group">
                         <label for="ingredient-subfamily-select">Sous-famille</label>
                         <select id="ingredient-subfamily-select">
                             <!-- Populated dynamically -->
                         </select>
-                        <input type="text" id="ingredient-subfamily-custom" placeholder="Nouvelle sous-famille..." style="display: none; margin-top: 0.5rem;">
+                        <input type="text" id="ingredient-subfamily-custom" placeholder="Nouvelle sous-famille..."
+                            style="display: none; margin-top: 0.5rem;">
                     </div>
                 </div>
 
                 <!-- Section allergènes -->
                 <div class="form-section">
-                    <h4>⚠️ Allergènes (Règlement UE 1169/2011)</h4>
+                    <h4>Allergènes (Règlement UE 1169/2011)</h4>
                     <p class="form-hint">Sélectionnez les allergènes présents dans cet ingrédient.</p>
                     <div id="allergen-checkboxes" class="allergen-checkbox-grid">
                         <!-- Les checkboxes sont générées par JavaScript -->

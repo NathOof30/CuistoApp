@@ -1,22 +1,24 @@
 import {
     mercuriale, recipes, VAT_RATE, CHARGED_HOURLY_RATE, OVERHEAD_RATE, TARGET_NET_MARGIN,
-    getIngredientById, calculateRecipeCost, saveData,
+    getIngredientById, getRecipesUsingSubRecipe, calculateRecipeCost, saveData,
     EU_ALLERGENS,
     calculateLaborCostPerServing, calculateTotalCostPerServing,
     calculateActualPriceHTPerServing,
     calculateNetMargin, calculateHourlyProfitability, calculateSuggestedPrice,
-    calculateRecipeWeight, calculateSalePricePerKgTTC, calculateSalePricePerKgHT,
+    calculateRecipeWeight, calculateSalePricePerKgTTC,
     getRecipeAllergens, getRecipeAllergenDetails, nextRecipeId
 } from '../data.js';
-import { formatCurrency, formatCurrency3, formatUnitPrice, formatPercent, formatDuration, escapeHTML, formatQuantityInput, convertUnitQuantity, convertQuantityBetweenUnits, getCompatibleUnits } from './common.js';
+import {
+    formatCurrency, formatCurrency3, formatUnitPrice, formatPercent, formatRate,
+    formatDecimalFactor, formatDuration, escapeHTML, formatQuantityInput,
+    convertUnitQuantity, convertQuantityBetweenUnits, getCompatibleUnits
+} from './common.js';
 import { showToast, showConfirm } from './ui-feedback.js';
 
-// Utiliser directement les exports pour éviter l'état obsolète
 let currentSortColumn = 'name';
 let currentSortDirection = 'asc';
 
 export function initRecettesPage() {
-    const tableBody = document.querySelector('#recipes-table tbody');
     const searchInput = document.getElementById('search-recipe');
     const addRecipeBtn = document.getElementById('add-recipe-btn');
     const modal = document.getElementById('recipe-modal');
@@ -26,7 +28,7 @@ export function initRecettesPage() {
     if (searchInput) {
         searchInput.addEventListener('input', () => renderRecipesTable());
     }
-    
+
     addRecipeBtn.addEventListener('click', () => showRecipeModal());
 
     // Hook up sorting click handlers on all sortable headers
@@ -39,7 +41,7 @@ export function initRecettesPage() {
                 currentSortColumn = sortKey;
                 currentSortDirection = 'asc';
             }
-            
+
             // Update sort icon indicators in all headers
             document.querySelectorAll('#recipes-table th.sortable').forEach(header => {
                 const iconSpan = header.querySelector('.sort-icon');
@@ -60,38 +62,24 @@ export function initRecettesPage() {
     if (closeFormX) closeFormX.addEventListener('click', () => { modal.style.display = 'none'; });
     document.getElementById('add-ingredient-row-btn').addEventListener('click', () => addIngredientRow());
 
-    // Fermeture par Escape
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            const recipeModal = document.getElementById('recipe-modal');
-            const allergenModal = document.getElementById('allergen-modal');
-            const detailsModal = document.getElementById('recipe-details-modal');
-            if (recipeModal && recipeModal.style.display !== 'none') recipeModal.style.display = 'none';
-            if (allergenModal && allergenModal.style.display !== 'none') allergenModal.style.display = 'none';
-            if (detailsModal && detailsModal.style.display !== 'none') detailsModal.style.display = 'none';
-        }
-    });
-
-    // Fermeture en cliquant sur l'overlay
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
-
     const detailsModal = document.getElementById('recipe-details-modal');
     if (detailsModal) {
-        detailsModal.addEventListener('click', (e) => { if (e.target === detailsModal) detailsModal.style.display = 'none'; });
         const closeBtn = document.getElementById('details-close-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => { detailsModal.style.display = 'none'; });
         }
     }
 
-    // Listen for input and change events within the form to update costs in real-time
+    // Recalcul temps réel unique via délégation d'événements
     form.addEventListener('input', (e) => {
-        if (e.target.matches('#recipe-servings, #recipe-multiplier, #recipe-production-time, .ingredient-quantity, .ingredient-select, .ingredient-unit-select')) {
+        if (e.target.matches('#recipe-servings, #recipe-multiplier, #recipe-production-time, .ingredient-quantity')) {
             updateCostSummary();
         }
     });
     form.addEventListener('change', (e) => {
-        updateCostSummary();
+        if (e.target.matches('.ingredient-select, .ingredient-unit-select')) {
+            updateCostSummary();
+        }
     });
 
     // Check for query params or local storage flag to open modal
@@ -104,17 +92,38 @@ export function initRecettesPage() {
     const openDetailsId = localStorage.getItem('openRecipeDetailsId') || urlParams.get('details');
     if (openDetailsId) {
         localStorage.removeItem('openRecipeDetailsId');
-        showRecipeDetails(parseInt(openDetailsId));
+        showRecipeDetails(parseInt(openDetailsId, 10));
     }
 
     const openEditId = localStorage.getItem('openRecipeEditId') || urlParams.get('edit');
     if (openEditId) {
         localStorage.removeItem('openRecipeEditId');
-        showRecipeModal(parseInt(openEditId));
+        showRecipeModal(parseInt(openEditId, 10));
     }
+}
 
-    // Setup allergen modal close
-    setupAllergenModal();
+export function refreshRecettesPage() {
+    renderRecipesTable();
+}
+
+function getAllergenNamesFromIds(allergenIds) {
+    if (!Array.isArray(allergenIds) || allergenIds.length === 0) return [];
+    const details = EU_ALLERGENS.filter(a => allergenIds.includes(a.id));
+    return details.map(a => a.name);
+}
+
+function formatIngredientRowCostHTML(ingredient, quantity, recipeUnit, lineCost) {
+    if (!ingredient || typeof ingredient.price !== 'number' || !Number.isFinite(ingredient.price)) {
+        return '—';
+    }
+    const isSuspicious = (
+        (String(ingredient.unit).toLowerCase().trim() === 'kg' && String(recipeUnit).toLowerCase().trim() === 'g' && quantity < 1) ||
+        (String(ingredient.unit).toLowerCase().trim() === 'l' && ['ml', 'cl'].includes(String(recipeUnit).toLowerCase().trim()) && quantity < 1)
+    );
+    if (isSuspicious) {
+        return `<span style="color: #d97706; font-weight: 700;" title="Attention : ${escapeHTML(quantity)} ${escapeHTML(recipeUnit)} est très faible (&lt; 1 g/ml). Vouliez-vous dire ${escapeHTML(quantity)} ${escapeHTML(ingredient.unit)} ?">! ${formatCurrency(lineCost)}</span>`;
+    }
+    return formatCurrency(lineCost);
 }
 
 // === RENDU DU TABLEAU PRINCIPAL ===
@@ -126,22 +135,26 @@ export function renderRecipesTable() {
     const searchInput = document.getElementById('search-recipe');
     const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-    const filteredRecipes = recipes.filter(r => r.name.toLowerCase().includes(searchTerm));
+    const filteredRecipes = recipes.filter(r => (r.name || '').toLowerCase().includes(searchTerm));
 
     if (filteredRecipes.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="11" class="table-empty">Aucune recette trouvée.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="10" class="table-empty">Aucune recette trouvée.</td></tr>`;
         return;
     }
 
+    const targetPercent = TARGET_NET_MARGIN * 100;
+    const mediumThreshold = targetPercent * 0.5;
+
     // Calculer les données de chaque recette pour le tri
     const computedRecipes = filteredRecipes.map(recipe => {
+        const hasTime = !!(recipe.productionTime && recipe.productionTime > 0);
         const totalCost = calculateRecipeCost(recipe);
         const costPerServing = recipe.servings > 0 ? totalCost / recipe.servings : 0;
         const salePriceHT = costPerServing * (recipe.multiplier || 0);
         const salePriceTTC = salePriceHT * (1 + VAT_RATE);
-        const grossMargin = salePriceHT > 0 ? ((salePriceHT - costPerServing) / salePriceHT) * 100 : 0;
-        const netMargin = calculateNetMargin(recipe);
-        const hourlyProfit = calculateHourlyProfitability(recipe);
+        const grossMargin = salePriceHT > 0 ? ((salePriceHT - costPerServing) / salePriceHT) * 100 : null;
+        const netMargin = hasTime ? calculateNetMargin(recipe) : null;
+        const hourlyProfit = hasTime ? calculateHourlyProfitability(recipe) : null;
         const weightInfo = calculateRecipeWeight(recipe);
         const totalWeightKg = weightInfo.totalWeightKg;
         const salePricePerKgTTC = calculateSalePricePerKgTTC(recipe, totalWeightKg);
@@ -149,8 +162,8 @@ export function renderRecipesTable() {
         return {
             recipe,
             name: recipe.name || '',
-            servings: recipe.servings || 0,
-            multiplier: recipe.multiplier || 0,
+            servings: recipe.servings || null,
+            multiplier: recipe.multiplier || null,
             totalCost,
             costPerServing,
             salePriceHT,
@@ -163,27 +176,31 @@ export function renderRecipesTable() {
         };
     });
 
-    // Trier les recettes calculées
+    // Trier les recettes calculées (valeurs manquantes/null toujours placées en fin de liste)
+    const isNumericCol = currentSortColumn !== 'name';
     computedRecipes.sort((a, b) => {
-        let valA = a[currentSortColumn];
-        let valB = b[currentSortColumn];
+        const valA = a[currentSortColumn];
+        const valB = b[currentSortColumn];
 
-        if (valA === undefined || valA === null) valA = '';
-        if (valB === undefined || valB === null) valB = '';
+        const emptyA = valA === undefined || valA === null || valA === '' || (isNumericCol && !Number.isFinite(Number(valA)));
+        const emptyB = valB === undefined || valB === null || valB === '' || (isNumericCol && !Number.isFinite(Number(valB)));
 
-        if (typeof valA === 'string') {
-            const cmp = valA.localeCompare(valB, 'fr', { sensitivity: 'base' });
+        if (emptyA && emptyB) return 0;
+        if (emptyA) return 1;
+        if (emptyB) return -1;
+
+        if (!isNumericCol) {
+            const cmp = String(valA).localeCompare(String(valB), 'fr', { sensitivity: 'base' });
             return currentSortDirection === 'asc' ? cmp : -cmp;
-        } else {
-            return currentSortDirection === 'asc' ? valA - valB : valB - valA;
         }
+        return currentSortDirection === 'asc' ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
     });
 
-    computedRecipes.forEach(({ recipe, totalCost, costPerServing, salePriceHT, salePriceTTC, totalWeightKg, salePricePerKgTTC, grossMargin, netMargin, hourlyProfit }) => {
+    computedRecipes.forEach(({ recipe, totalCost, costPerServing, salePriceHT, salePriceTTC, salePricePerKgTTC, grossMargin, netMargin, hourlyProfit }) => {
         // Marge brute classes & display
         let marginDisplay = 'N/A';
         let marginClass = '';
-        if (salePriceHT > 0) {
+        if (grossMargin !== null) {
             marginDisplay = formatPercent(grossMargin);
             if (grossMargin >= 50) {
                 marginClass = 'margin-high';
@@ -194,14 +211,14 @@ export function renderRecipesTable() {
             }
         }
 
-        // Marge nette classes & display
+        // Marge nette classes & display (seuils alignés sur la marge nette cible)
         let netMarginDisplay = 'N/A';
         let netMarginClass = '';
-        if (recipe.productionTime && recipe.productionTime > 0) {
+        if (netMargin !== null) {
             netMarginDisplay = formatPercent(netMargin);
-            if (netMargin >= 20) {
+            if (netMargin >= targetPercent) {
                 netMarginClass = 'margin-high';
-            } else if (netMargin >= 10) {
+            } else if (netMargin >= mediumThreshold) {
                 netMarginClass = 'margin-medium';
             } else {
                 netMarginClass = 'margin-low';
@@ -211,7 +228,7 @@ export function renderRecipesTable() {
         // Rentabilité horaire classes & display
         let hourlyProfitDisplay = 'N/A';
         let hourlyProfitClass = '';
-        if (recipe.productionTime && recipe.productionTime > 0) {
+        if (hourlyProfit !== null) {
             hourlyProfitDisplay = formatCurrency(hourlyProfit) + '/h';
             if (hourlyProfit >= 30) {
                 hourlyProfitClass = 'profit-high';
@@ -248,58 +265,6 @@ export function renderRecipesTable() {
     });
 }
 
-// === AFFICHAGE DES ALLERGÈNES ===
-function renderAllergenBadges(allergens, recipeId) {
-    if (!allergens || allergens.length === 0) {
-        return '<span class="no-allergen-badge" title="Aucun allergène identifié">✓</span>';
-    }
-
-    return `<button type="button" class="allergen-indicator" data-recipe-id="${recipeId}" title="Contient ${allergens.length} allergène(s) - Cliquer pour détails">
-        ⚠️
-    </button>`;
-}
-
-function setupAllergenModal() {
-    const modal = document.getElementById('allergen-modal');
-    if (!modal) return;
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal || e.target.classList.contains('modal-close-btn')) {
-            modal.style.display = 'none';
-        }
-    });
-}
-
-function showAllergenModal(recipeId) {
-    const modal = document.getElementById('allergen-modal');
-    if (!modal) return;
-
-    const recipe = recipes.find(r => r.id == recipeId);
-    if (!recipe) return;
-
-    const allergens = getRecipeAllergenDetails(recipe);
-    const titleEl = modal.querySelector('.allergen-modal-title');
-    const listEl = modal.querySelector('.allergen-list');
-
-    titleEl.textContent = `Allergènes - ${recipe.name}`;
-
-    if (allergens.length === 0) {
-        listEl.innerHTML = '<p class="no-allergens-message">Aucun allergène identifié dans cette recette.</p>';
-    } else {
-        listEl.innerHTML = allergens.map(a => `
-            <div class="allergen-item">
-                <span class="allergen-icon">${a.icon}</span>
-                <div class="allergen-info">
-                    <strong>${a.name}</strong>
-                    <p>${a.description}</p>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    modal.style.display = 'flex';
-}
-
 // === MODAL RECETTE ===
 function showRecipeModal(recipeId = null) {
     const modal = document.getElementById('recipe-modal');
@@ -309,6 +274,7 @@ function showRecipeModal(recipeId = null) {
 
     if (recipeId) {
         const recipe = recipes.find(r => r.id == recipeId);
+        if (!recipe) return;
         document.getElementById('modal-title').textContent = 'Modifier la recette';
         document.getElementById('recipe-id').value = recipe.id;
         document.getElementById('recipe-name').value = recipe.name;
@@ -316,18 +282,21 @@ function showRecipeModal(recipeId = null) {
         document.getElementById('recipe-multiplier').value = recipe.multiplier;
         document.getElementById('recipe-steps').value = recipe.steps || '';
 
-        // Temps de production
         const productionTimeInput = document.getElementById('recipe-production-time');
         if (productionTimeInput) {
             productionTimeInput.value = recipe.productionTime || '';
         }
 
-        recipe.ingredients.forEach(ing => addIngredientRow(ing));
+        if (Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0) {
+            recipe.ingredients.forEach(ing => addIngredientRow(ing));
+        } else {
+            addIngredientRow();
+        }
     } else {
         document.getElementById('modal-title').textContent = 'Ajouter une recette';
         document.getElementById('recipe-id').value = '';
         document.getElementById('recipe-steps').value = '';
-        addIngredientRow(); // Add one empty row to start
+        addIngredientRow();
     }
 
     updateCostSummary();
@@ -339,7 +308,7 @@ function addIngredientRow(ingredientItem = null) {
     const row = document.createElement('div');
     row.className = 'ingredient-row';
 
-    const currentEditingRecipeId = parseInt(document.getElementById('recipe-id')?.value) || null;
+    const currentEditingRecipeId = parseInt(document.getElementById('recipe-id')?.value, 10) || null;
 
     const select = document.createElement('select');
     select.className = 'ingredient-select';
@@ -347,23 +316,24 @@ function addIngredientRow(ingredientItem = null) {
     let optionsHtml = `<option value="">Choisir un composant...</option>`;
 
     // Option group 1: Mercuriale ingredients
-    const ingredientsOptions = [...mercuriale].sort((a, b) => a.name.localeCompare(b.name)).map(ing => {
-        const hasAllergens = ing.allergens && ing.allergens.length > 0;
-        const allergenIcon = hasAllergens ? ' ⚠️' : '';
-        return `<option value="ing_${ing.id}" data-type="ingredient" data-id="${ing.id}">${escapeHTML(ing.name)} (${escapeHTML(ing.unit)})${allergenIcon}</option>`;
-    }).join('');
-    optionsHtml += `<optgroup label="📦 Denrées (Mercuriale)">${ingredientsOptions}</optgroup>`;
+    const ingredientsOptions = [...mercuriale]
+        .sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }))
+        .map(ing => {
+            const hasAllergens = ing.allergens && ing.allergens.length > 0;
+            const allergenMarker = hasAllergens ? ' [Allergène]' : '';
+            return `<option value="ing_${ing.id}" data-type="ingredient" data-id="${ing.id}">${escapeHTML(ing.name)} (${escapeHTML(ing.unit)})${allergenMarker}</option>`;
+        }).join('');
+    optionsHtml += `<optgroup label="Denrées (Mercuriale)">${ingredientsOptions}</optgroup>`;
 
     // Option group 2: Sub-recipes (exclude current recipe being edited to prevent self-nesting)
     const subRecipesOptions = [...recipes]
         .filter(r => !currentEditingRecipeId || r.id !== currentEditingRecipeId)
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(r => {
-            return `<option value="sub_${r.id}" data-type="subrecipe" data-id="${r.id}">👩‍🍳 ${escapeHTML(r.name)} (${r.servings || 1} portion${(r.servings || 1) > 1 ? 's' : ''})</option>`;
-        }).join('');
+        .sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }))
+        .map(r => `<option value="sub_${r.id}" data-type="subrecipe" data-id="${r.id}">[Sous-recette] ${escapeHTML(r.name)} (${r.servings || 1} portion${(r.servings || 1) > 1 ? 's' : ''})</option>`)
+        .join('');
 
     if (subRecipesOptions) {
-        optionsHtml += `<optgroup label="👩‍🍳 Sous-Recettes (Fiches techniques)">${subRecipesOptions}</optgroup>`;
+        optionsHtml += `<optgroup label="Sous-Recettes (Fiches techniques)">${subRecipesOptions}</optgroup>`;
     }
 
     select.innerHTML = optionsHtml;
@@ -386,60 +356,14 @@ function addIngredientRow(ingredientItem = null) {
 
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
-    deleteBtn.textContent = '🗑️';
+    deleteBtn.textContent = '✕';
     deleteBtn.className = 'delete-ingredient-btn button-secondary';
     deleteBtn.title = 'Supprimer cet ingrédient';
+    deleteBtn.setAttribute('aria-label', 'Supprimer cet ingrédient');
     deleteBtn.onclick = () => {
         row.remove();
         updateCostSummary();
     };
-
-    function updateRowCost() {
-        const selectedOpt = select.options[select.selectedIndex];
-        const quantity = parseFloat(quantityInput.value);
-        const unit = unitSelect.value;
-
-        if (!selectedOpt || !selectedOpt.value || isNaN(quantity) || quantity <= 0) {
-            lineCostSpan.textContent = '—';
-            return;
-        }
-
-        const type = selectedOpt.dataset.type;
-        const id = parseInt(selectedOpt.dataset.id);
-
-        if (type === 'subrecipe') {
-            const subRecipe = recipes.find(r => r.id === id);
-            if (subRecipe) {
-                const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
-                const subCostPerServing = calculateRecipeCost(subRecipe) / subServings;
-                lineCostSpan.textContent = formatCurrency(subCostPerServing * quantity);
-            } else {
-                lineCostSpan.textContent = '—';
-            }
-        } else {
-            const ing = getIngredientById(id);
-            if (ing && typeof ing.price === 'number') {
-                const recipeUnit = unit || ing.unit;
-                const convertedQty = convertUnitQuantity(quantity, recipeUnit, ing.unit);
-                const yieldPct = (typeof ing.yield === 'number' && ing.yield > 0) ? ing.yield : 100;
-                const effectiveUnitPrice = ing.price / (yieldPct / 100);
-                const lineCost = effectiveUnitPrice * convertedQty;
-
-                const isSuspicious = (
-                    (String(ing.unit).toLowerCase() === 'kg' && String(recipeUnit).toLowerCase() === 'g' && quantity < 1) ||
-                    (String(ing.unit).toLowerCase() === 'l' && ['ml', 'cl'].includes(String(recipeUnit).toLowerCase()) && quantity < 1)
-                );
-
-                if (isSuspicious) {
-                    lineCostSpan.innerHTML = `<span style="color: #d97706; font-weight: 700;" title="Attention : ${quantity} ${escapeHTML(recipeUnit)} est très faible (< 1 g/ml). Vouliez-vous dire ${quantity} ${escapeHTML(ing.unit)} ?">⚠️ ${formatCurrency(lineCost)}</span>`;
-                } else {
-                    lineCostSpan.textContent = formatCurrency(lineCost);
-                }
-            } else {
-                lineCostSpan.textContent = '—';
-            }
-        }
-    }
 
     function updateUnitOptions(preferredUnit = null) {
         const selectedOpt = select.options[select.selectedIndex];
@@ -450,7 +374,7 @@ function addIngredientRow(ingredientItem = null) {
         }
 
         const type = selectedOpt.dataset.type;
-        const id = parseInt(selectedOpt.dataset.id);
+        const id = parseInt(selectedOpt.dataset.id, 10);
 
         if (type === 'subrecipe') {
             unitSelect.innerHTML = `<option value="portion">portion(s)</option>`;
@@ -461,7 +385,7 @@ function addIngredientRow(ingredientItem = null) {
             const ing = getIngredientById(id);
             if (ing) {
                 const compatUnits = getCompatibleUnits(ing.unit);
-                unitSelect.innerHTML = compatUnits.map(u => `<option value="${u}">${u}</option>`).join('');
+                unitSelect.innerHTML = compatUnits.map(u => `<option value="${escapeHTML(u)}">${escapeHTML(u)}</option>`).join('');
                 quantityInput.placeholder = 'Qté';
 
                 const targetUnit = preferredUnit || ing.unit || compatUnits[0];
@@ -481,10 +405,9 @@ function addIngredientRow(ingredientItem = null) {
         }
     }
 
+    // Les écouteurs locaux préparent les unités/conversions ; le formulaire appelle updateCostSummary() une seule fois.
     select.addEventListener('change', () => {
         updateUnitOptions();
-        updateRowCost();
-        updateCostSummary();
     });
 
     unitSelect.addEventListener('change', () => {
@@ -497,13 +420,6 @@ function addIngredientRow(ingredientItem = null) {
             }
         }
         unitSelect.dataset.prevUnit = newUnit;
-        updateRowCost();
-        updateCostSummary();
-    });
-
-    quantityInput.addEventListener('input', () => {
-        updateRowCost();
-        updateCostSummary();
     });
 
     if (ingredientItem) {
@@ -519,7 +435,6 @@ function addIngredientRow(ingredientItem = null) {
             updateUnitOptions(initialUnit);
             quantityInput.value = formatQuantityInput(ingredientItem.quantity, unitSelect.value || initialUnit);
         }
-        updateRowCost();
     }
 
     row.appendChild(select);
@@ -536,7 +451,7 @@ function updateCostSummary() {
     const servings = parseFloat(form.querySelector('#recipe-servings').value) || 0;
     const multiplier = parseFloat(form.querySelector('#recipe-multiplier').value) || 0;
     const productionTime = parseFloat(form.querySelector('#recipe-production-time')?.value) || 0;
-    const currentRecipeId = parseInt(form.querySelector('#recipe-id')?.value) || null;
+    const currentRecipeId = parseInt(form.querySelector('#recipe-id')?.value, 10) || null;
 
     let totalCost = 0;
     const allergenSet = new Set();
@@ -547,20 +462,21 @@ function updateCostSummary() {
         const selectedOpt = select.options[select.selectedIndex];
         const quantity = parseFloat(row.querySelector('.ingredient-quantity').value);
         const unit = row.querySelector('.ingredient-unit-select')?.value;
+        const lineCostSpan = row.querySelector('.ingredient-row-cost');
 
         if (selectedOpt && selectedOpt.value && !isNaN(quantity) && quantity > 0) {
             const type = selectedOpt.dataset.type;
-            const id = parseInt(selectedOpt.dataset.id);
+            const id = parseInt(selectedOpt.dataset.id, 10);
 
             if (type === 'subrecipe') {
-                const subRecipe = recipes.find(r => r.id === id);
+                const subRecipe = recipes.find(r => parseInt(r.id, 10) === id);
                 if (subRecipe) {
+                    const visited = currentRecipeId ? new Set([currentRecipeId]) : new Set();
                     const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
-                    const subCostPerServing = calculateRecipeCost(subRecipe) / subServings;
+                    const subCostPerServing = calculateRecipeCost(subRecipe, visited) / subServings;
                     const lineCost = subCostPerServing * quantity;
                     totalCost += lineCost;
 
-                    const lineCostSpan = row.querySelector('.ingredient-row-cost');
                     if (lineCostSpan) lineCostSpan.textContent = formatCurrency(lineCost);
 
                     currentIngredients.push({
@@ -570,15 +486,17 @@ function updateCostSummary() {
                         unit: 'portion'
                     });
 
-                    const subAllergens = getRecipeAllergens(subRecipe);
+                    const subAllergens = getRecipeAllergens(subRecipe, visited);
                     subAllergens.forEach(a => allergenSet.add(a));
+                } else if (lineCostSpan) {
+                    lineCostSpan.textContent = '—';
                 }
             } else {
                 const ingredient = getIngredientById(id);
                 if (ingredient) {
+                    const recipeUnit = unit || ingredient.unit;
                     let lineCost = 0;
                     if (typeof ingredient.price === 'number' && Number.isFinite(ingredient.price)) {
-                        const recipeUnit = unit || ingredient.unit;
                         const convertedQty = convertUnitQuantity(quantity, recipeUnit, ingredient.unit);
                         const yieldPct = (typeof ingredient.yield === 'number' && ingredient.yield > 0) ? ingredient.yield : 100;
                         const effectiveUnitPrice = ingredient.price / (yieldPct / 100);
@@ -586,23 +504,25 @@ function updateCostSummary() {
                         totalCost += lineCost;
                     }
 
-                    const lineCostSpan = row.querySelector('.ingredient-row-cost');
-                    if (lineCostSpan) lineCostSpan.textContent = lineCost > 0 ? formatCurrency(lineCost) : '—';
+                    if (lineCostSpan) {
+                        lineCostSpan.innerHTML = formatIngredientRowCostHTML(ingredient, quantity, recipeUnit, lineCost);
+                    }
 
                     currentIngredients.push({
                         ingredientId: id,
                         quantity,
-                        unit: unit || ingredient.unit
+                        unit: recipeUnit
                     });
 
                     if (Array.isArray(ingredient.allergens)) {
                         ingredient.allergens.forEach(a => allergenSet.add(a));
                     }
+                } else if (lineCostSpan) {
+                    lineCostSpan.textContent = '—';
                 }
             }
-        } else {
-            const lineCostSpan = row.querySelector('.ingredient-row-cost');
-            if (lineCostSpan) lineCostSpan.textContent = '—';
+        } else if (lineCostSpan) {
+            lineCostSpan.textContent = '—';
         }
     });
 
@@ -610,7 +530,6 @@ function updateCostSummary() {
     const salePriceHT = costPerServing * multiplier;
     const salePriceTTC = salePriceHT * (1 + VAT_RATE);
 
-    // Création d'un objet recette temporaire pour les calculs de rentabilité
     const tempRecipe = {
         id: currentRecipeId,
         servings,
@@ -667,6 +586,7 @@ function updateCostSummary() {
     const totalCostServingEl = document.getElementById('total-cost-serving-display');
     const netMarginEl = document.getElementById('net-margin-display');
     const hourlyProfitEl = document.getElementById('hourly-profit-display');
+    const suggestedPriceTitleEl = document.getElementById('suggested-price-title');
     const suggestedPriceHTEl = document.getElementById('suggested-price-ht-display');
     const suggestedPriceTTCEl = document.getElementById('suggested-price-ttc-display');
 
@@ -679,6 +599,9 @@ function updateCostSummary() {
     if (hourlyProfitEl) {
         hourlyProfitEl.textContent = productionTime > 0 ? formatCurrency(hourlyProfitability) + '/h' : 'N/A';
         hourlyProfitEl.className = getProfitClass(hourlyProfitability, productionTime > 0);
+    }
+    if (suggestedPriceTitleEl) {
+        suggestedPriceTitleEl.textContent = `Prix suggéré (Marge ${formatRate(TARGET_NET_MARGIN * 100)})`;
     }
     if (suggestedPriceHTEl) {
         suggestedPriceHTEl.textContent = productionTime > 0 && servings > 0 ? formatCurrency(suggestedPrice.ht) : 'N/A';
@@ -693,8 +616,9 @@ function updateCostSummary() {
 
 function getMarginClass(margin, isValid) {
     if (!isValid) return '';
-    if (margin >= 20) return 'value-positive';
-    if (margin >= 10) return 'value-warning';
+    const targetPercent = TARGET_NET_MARGIN * 100;
+    if (margin >= targetPercent) return 'value-positive';
+    if (margin >= targetPercent * 0.5) return 'value-warning';
     return 'value-negative';
 }
 
@@ -713,12 +637,12 @@ function updateAllergenPreview(allergenSet) {
     const allergens = EU_ALLERGENS.filter(a => allergenIds.includes(a.id));
 
     if (allergens.length === 0) {
-        previewEl.innerHTML = '<span class="no-allergen-preview">✓ Aucun allergène détecté</span>';
+        previewEl.innerHTML = '<span class="no-allergen-preview">Aucun allergène détecté</span>';
     } else {
         previewEl.innerHTML = `
-            <span class="allergen-warning">⚠️ Allergènes détectés :</span>
+            <span class="allergen-warning">Allergènes détectés :</span>
             <div class="allergen-preview-list">
-                ${allergens.map(a => `<span class="allergen-preview-item" title="${a.description}">${a.icon} ${a.name}</span>`).join('')}
+                ${allergens.map(a => `<span class="allergen-preview-item" title="${escapeHTML(a.description)}">${escapeHTML(a.name)}</span>`).join('')}
             </div>
         `;
     }
@@ -731,9 +655,9 @@ function handleFormSubmit(e) {
     const recipeId = form.querySelector('#recipe-id').value;
     const productionTimeInput = form.querySelector('#recipe-production-time');
 
-    const servings = parseInt(form.querySelector('#recipe-servings').value);
+    const servings = parseInt(form.querySelector('#recipe-servings').value, 10);
     const multiplier = parseFloat(form.querySelector('#recipe-multiplier').value);
-    const productionTime = productionTimeInput ? (parseInt(productionTimeInput.value) || 0) : 0;
+    const productionTime = productionTimeInput ? (parseInt(productionTimeInput.value, 10) || 0) : 0;
 
     if (isNaN(servings) || servings <= 0) {
         showToast('Le nombre de portions doit être au moins 1.', 'error');
@@ -749,7 +673,7 @@ function handleFormSubmit(e) {
     }
 
     const recipeData = {
-        id: recipeId ? parseInt(recipeId) : nextRecipeId(),
+        id: recipeId ? parseInt(recipeId, 10) : nextRecipeId(),
         name: form.querySelector('#recipe-name').value.trim(),
         servings: servings,
         multiplier: multiplier,
@@ -766,7 +690,7 @@ function handleFormSubmit(e) {
 
         if (selectedOpt && selectedOpt.value && !isNaN(quantity) && quantity > 0) {
             const type = selectedOpt.dataset.type;
-            const id = parseInt(selectedOpt.dataset.id);
+            const id = parseInt(selectedOpt.dataset.id, 10);
 
             if (type === 'subrecipe') {
                 recipeData.ingredients.push({
@@ -787,7 +711,11 @@ function handleFormSubmit(e) {
 
     if (recipeId) {
         const index = recipes.findIndex(r => r.id == recipeId);
-        recipes[index] = recipeData;
+        if (index !== -1) {
+            recipes[index] = recipeData;
+        } else {
+            recipes.push(recipeData);
+        }
     } else {
         recipes.push(recipeData);
     }
@@ -832,24 +760,47 @@ function duplicateRecipe(recipeId) {
     recipes.push(copy);
     saveData(recipes, mercuriale);
     renderRecipesTable();
-    // Open the modal on the new copy so user can edit quickly
     showRecipeModal(copy.id);
 }
 
 function deleteRecipe(recipeId) {
-    const recipe = recipes.find(r => r.id == recipeId);
+    const numericId = parseInt(recipeId, 10);
+    const recipe = recipes.find(r => parseInt(r.id, 10) === numericId);
     const name = recipe ? escapeHTML(recipe.name) : 'cette recette';
-    showConfirm(`Supprimer la recette <strong>${name}</strong> ?`, () => {
-        const idx = recipes.findIndex(r => r.id == recipeId);
+    const parentRecipes = getRecipesUsingSubRecipe(numericId);
+
+    let message = `Supprimer la recette <strong>${name}</strong> ?`;
+    if (parentRecipes.length > 0) {
+        const parentNames = parentRecipes.map(r => `<em>${escapeHTML(r.name)}</em>`).join(', ');
+        message += `<br><br><strong>Attention :</strong> Cette recette est utilisée comme sous-recette dans ${parentRecipes.length} recette(s) : ${parentNames}.<br><br>En la supprimant, elle sera automatiquement retirée de ces recettes parentes.`;
+    }
+
+    showConfirm(message, () => {
+        if (parentRecipes.length > 0) {
+            recipes.forEach(r => {
+                if (Array.isArray(r.ingredients)) {
+                    r.ingredients = r.ingredients.filter(item =>
+                        !(
+                            (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) &&
+                            parseInt(item.subRecipeId || item.ingredientId, 10) === numericId
+                        )
+                    );
+                }
+            });
+        }
+        const idx = recipes.findIndex(r => parseInt(r.id, 10) === numericId);
         if (idx !== -1) {
             recipes.splice(idx, 1);
             saveData(recipes, mercuriale);
         }
         renderRecipesTable();
-        showToast('Recette supprimée.', 'warning');
+        showToast(
+            parentRecipes.length > 0 ? 'Recette supprimée et retirée des recettes parentes.' : 'Recette supprimée.',
+            'warning'
+        );
     }, {
         title: 'Supprimer une recette',
-        confirmLabel: 'Supprimer',
+        confirmLabel: parentRecipes.length > 0 ? 'Nettoyer & Supprimer' : 'Supprimer',
         cancelLabel: 'Annuler',
         danger: true
     });
@@ -863,9 +814,14 @@ export function showRecipeDetails(recipeId) {
     const content = document.getElementById('recipe-details-content');
     if (!modal || !content) return;
 
+    const targetPercent = TARGET_NET_MARGIN * 100;
+    const mediumThreshold = targetPercent * 0.5;
+    const targetRateText = formatRate(targetPercent);
+
+    const multiplier = Math.max(0, parseFloat(recipe.multiplier) || 0);
     const totalCost = calculateRecipeCost(recipe);
     const costPerServing = recipe.servings > 0 ? totalCost / recipe.servings : 0;
-    const salePriceHT = costPerServing * (recipe.multiplier || 0);
+    const salePriceHT = costPerServing * multiplier;
     const salePriceTTC = salePriceHT * (1 + VAT_RATE);
     const grossMargin = salePriceHT > 0 ? ((salePriceHT - costPerServing) / salePriceHT) * 100 : 0;
     const netMargin = calculateNetMargin(recipe);
@@ -879,11 +835,10 @@ export function showRecipeDetails(recipeId) {
     const allergensPillsHtml = allergens.length > 0
         ? allergens.map(a => `
             <span class="allergen-pill" title="${escapeHTML(a.description)}">
-                <span class="allergen-pill-icon">${a.icon}</span>
                 <span class="allergen-pill-name">${escapeHTML(a.name)}</span>
             </span>
           `).join('')
-        : '<span class="allergen-pill allergen-pill-none">✓ Aucun allergène détecté</span>';
+        : '<span class="allergen-pill allergen-pill-none">Aucun allergène détecté</span>';
 
     // Ingrédients & Sous-recettes table rows
     let ingredientsRowsHtml = '';
@@ -891,22 +846,26 @@ export function showRecipeDetails(recipeId) {
         ingredientsRowsHtml = `<tr><td colspan="5" class="text-center text-muted" style="padding:2rem;">Aucun ingrédient dans cette recette.</td></tr>`;
     } else {
         recipe.ingredients.forEach(item => {
+            const qty = parseFloat(item.quantity) || 0;
             if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
-                const subId = parseInt(item.subRecipeId || item.ingredientId);
-                const subRecipe = recipes.find(r => r.id === subId);
+                const subId = parseInt(item.subRecipeId || item.ingredientId, 10);
+                const subRecipe = recipes.find(r => parseInt(r.id, 10) === subId);
                 if (subRecipe) {
+                    const visited = recipe.id ? new Set([parseInt(recipe.id, 10)]) : new Set();
                     const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
-                    const subCostPerServing = calculateRecipeCost(subRecipe) / subServings;
-                    const totalSubCost = subCostPerServing * item.quantity;
-                    const subAllergens = getRecipeAllergenDetails(subRecipe);
+                    const subCostPerServing = calculateRecipeCost(subRecipe, visited) / subServings;
+                    const totalSubCost = subCostPerServing * qty;
+                    const subAllergenIds = getRecipeAllergens(subRecipe, visited);
+                    const subAllergens = EU_ALLERGENS.filter(a => subAllergenIds.includes(a.id));
+                    const allergenNames = subAllergens.map(a => a.name).join(', ');
                     const allergenBadge = subAllergens.length > 0
-                        ? `<span style="color:#ef4444;" title="${escapeHTML(subAllergens.map(a=>a.name).join(', '))}">⚠️ ${escapeHTML(subAllergens.map(a=>a.name).join(', '))}</span>`
+                        ? `<span style="color:#ef4444;" title="${escapeHTML(allergenNames)}">${escapeHTML(allergenNames)}</span>`
                         : '<span style="color:#94a3b8;">—</span>';
 
                     ingredientsRowsHtml += `
                         <tr>
-                            <td style="font-weight: 600;"><span class="subrecipe-badge">👩‍🍳 Sous-recette</span> ${escapeHTML(subRecipe.name)}</td>
-                            <td class="text-center font-mono">${formatQuantityInput(item.quantity, 'portion')} portion(s)</td>
+                            <td style="font-weight: 600;"><span class="subrecipe-badge">Sous-recette</span> ${escapeHTML(subRecipe.name)}</td>
+                            <td class="text-center font-mono">${formatQuantityInput(qty, 'portion')} portion(s)</td>
                             <td class="text-right font-mono">${formatCurrency3(subCostPerServing)} / portion</td>
                             <td class="text-right font-mono" style="font-weight: 700;">${formatCurrency3(totalSubCost)}</td>
                             <td class="text-center font-mono">${allergenBadge}</td>
@@ -918,23 +877,26 @@ export function showRecipeDetails(recipeId) {
                 if (ing) {
                     const ingUnit = ing.unit;
                     const recipeUnit = item.unit || ingUnit;
-                    const convertedQty = convertUnitQuantity(item.quantity, recipeUnit, ingUnit);
+                    const convertedQty = convertUnitQuantity(qty, recipeUnit, ingUnit);
                     const yieldPct = (typeof ing.yield === 'number' && ing.yield > 0) ? ing.yield : 100;
-                    const effectiveUnitPrice = (ing.price || 0) / (yieldPct / 100);
+                    const effectiveUnitPrice = (typeof ing.price === 'number' && Number.isFinite(ing.price))
+                        ? ing.price / (yieldPct / 100)
+                        : 0;
                     const cost = effectiveUnitPrice * convertedQty;
 
-                    const hasAllergens = ing.allergens && ing.allergens.length > 0;
-                    const allergenBadge = hasAllergens
-                        ? `<span style="color:#ef4444;" title="${escapeHTML(ing.allergens.join(', '))}">⚠️ ${escapeHTML(ing.allergens.join(', '))}</span>`
+                    const allergenNames = getAllergenNamesFromIds(ing.allergens);
+                    const allergenText = allergenNames.join(', ');
+                    const allergenBadge = allergenNames.length > 0
+                        ? `<span style="color:#ef4444;" title="${escapeHTML(allergenText)}">${escapeHTML(allergenText)}</span>`
                         : '<span style="color:#94a3b8;">—</span>';
 
                     const isSuspiciousQty = (
-                        (String(ingUnit).toLowerCase() === 'kg' && String(recipeUnit).toLowerCase() === 'g' && item.quantity < 1) ||
-                        (String(ingUnit).toLowerCase() === 'l' && ['ml', 'cl'].includes(String(recipeUnit).toLowerCase()) && item.quantity < 1)
+                        (String(ingUnit).toLowerCase().trim() === 'kg' && String(recipeUnit).toLowerCase().trim() === 'g' && qty > 0 && qty < 1) ||
+                        (String(ingUnit).toLowerCase().trim() === 'l' && ['ml', 'cl'].includes(String(recipeUnit).toLowerCase().trim()) && qty > 0 && qty < 1)
                     );
                     const qtyDisplay = isSuspiciousQty
-                        ? `<span style="color:#b45309; font-weight:700; background:#fef3c7; padding:2px 6px; border-radius:4px;" title="Quantité anormalement basse (${item.quantity} ${recipeUnit}) pour un ingrédient acheté au ${ingUnit}. Probable confusion avec ${item.quantity} ${ingUnit}.">⚠️ ${formatQuantityInput(item.quantity, recipeUnit)} ${escapeHTML(recipeUnit)}</span>`
-                        : `${formatQuantityInput(item.quantity, recipeUnit)} ${escapeHTML(recipeUnit)}`;
+                        ? `<span style="color:#b45309; font-weight:700; background:#fef3c7; padding:2px 6px; border-radius:4px;" title="Quantité anormalement basse (${escapeHTML(qty)} ${escapeHTML(recipeUnit)}) pour un ingrédient acheté au ${escapeHTML(ingUnit)}. Probable confusion avec ${escapeHTML(qty)} ${escapeHTML(ingUnit)}.">! ${formatQuantityInput(qty, recipeUnit)} ${escapeHTML(recipeUnit)}</span>`
+                        : `${formatQuantityInput(qty, recipeUnit)} ${escapeHTML(recipeUnit)}`;
 
                     ingredientsRowsHtml += `
                         <tr>
@@ -957,20 +919,19 @@ export function showRecipeDetails(recipeId) {
     const volumeApproxUsed = weightInfo.volumeApproxUsed;
     const salePricePerKgTTC = calculateSalePricePerKgTTC(recipe, totalWeightKg);
 
-    // Construire la note de bas de tableau (avertissements uniquement si denrée exclue ou liquide approximé)
     let weightFootnote = '';
     if (excludedCount > 0) {
-        weightFootnote += `<small style="color:var(--text-light); white-space:nowrap;">⚠️ ${excludedCount} ingrédient(s) sans poids exclu(s). Renseignez le "Poids brut / unité" dans la Mercuriale.</small><br>`;
+        weightFootnote += `<small style="color:var(--text-light);">Poids partiel : ${excludedCount} ingrédient(s) sans poids exclu(s). Renseignez le "Poids brut / unité" dans la Mercuriale.</small><br>`;
     }
     if (volumeApproxUsed) {
-        weightFootnote += `<small style="color:var(--text-light); white-space:nowrap;">ℹ️ Liquides comptés avec densité ≈ 1 kg/L (approximation standard).</small>`;
+        weightFootnote += `<small style="color:var(--text-light);">Liquides comptés avec densité ≈ 1 kg/L (approximation standard).</small>`;
     }
 
     const weightTotalRow = `
         <tr class="weight-total-row" style="background: var(--bg-secondary, #f8fafc); border-top: 2px solid var(--border-color, #e2e8f0); white-space: nowrap !important;">
-            <td style="font-weight:700; padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;">⚖️&nbsp;Total&nbsp;recette</td>
+            <td style="font-weight:700; padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;">Total recette</td>
             <td class="text-center font-mono" style="font-weight:700; padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;" title="Poids total calculé de la recette">
-                ${totalWeightKg > 0 ? `${totalWeightKg.toLocaleString('fr-FR', {minimumFractionDigits:3, maximumFractionDigits:3})}&nbsp;kg` : '—'}
+                ${totalWeightKg > 0 ? `${totalWeightKg.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}&nbsp;kg` : '—'}
             </td>
             <td class="text-right font-mono" style="color: var(--text-light); padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;">—</td>
             <td class="text-right font-mono" style="font-weight:700; padding-top:0.65rem; padding-bottom:0.65rem; white-space: nowrap !important;" title="Coût matière total pour le poids total de la recette">
@@ -981,45 +942,43 @@ export function showRecipeDetails(recipeId) {
         ${(excludedCount > 0 || volumeApproxUsed) ? `<tr><td colspan="5" style="padding-top:0.3rem; padding-bottom:0.6rem; line-height:1.4;">${weightFootnote}</td></tr>` : ''}
     `;
 
-
     ingredientsRowsHtml += weightTotalRow;
 
-
-    // Diagnostics / Alerte conviviale
+    // Diagnostics / Alerte rentabilité (seuils dynamiques basés sur TARGET_NET_MARGIN)
     let alertClass = 'alert-success';
-    let alertTitle = '🌟 Alerte conviviale';
-    let alertMessage = 'La recette est très rentable et peut être vendue au prix appliqué sans risque de perte.';
+    let alertTitle = 'Diagnostic rentabilité';
+    let alertMessage = 'La recette est rentable et peut être vendue au prix appliqué sans risque de perte.';
     let statusClass = 'status-high';
-    let statusText = '25% cible atteinte ✅';
+    let statusText = `${targetRateText} cible atteinte`;
     let progressClass = 'fill-high';
 
     if (!recipe.productionTime || recipe.productionTime <= 0) {
         alertClass = '';
-        alertTitle = '💡 Temps de production non renseigné';
+        alertTitle = 'Temps de production non renseigné';
         alertMessage = 'Renseignez le temps de production en modifiant la recette pour débloquer le diagnostic du Prime Cost SAS et la rentabilité horaire.';
         statusClass = 'status-medium';
         statusText = 'Temps de production non renseigné';
         progressClass = 'fill-medium';
-    } else if (netMargin >= 20) {
+    } else if (netMargin >= targetPercent) {
         alertClass = 'alert-success';
-        alertTitle = '🌟 Alerte conviviale';
-        alertMessage = `Excellente rentabilité ! La recette couvre tous ses coûts et dégage ${formatCurrency(hourlyProfit)}/h de bénéfice net.`;
+        alertTitle = 'Rentabilité conforme';
+        alertMessage = `La recette couvre tous ses coûts et dégage ${formatCurrency(hourlyProfit)}/h de bénéfice net.`;
         statusClass = 'status-high';
-        statusText = `${formatPercent(netMargin)} — Marge cible atteinte ✅`;
+        statusText = `${formatPercent(netMargin)} — Marge cible atteinte (${targetRateText})`;
         progressClass = 'fill-high';
     } else if (netMargin >= 0) {
         alertClass = '';
-        alertTitle = '💡 Diagnostic rentabilité';
-        alertMessage = `La recette est bénéficiaire mais sous la marge cible de 25%. Prix suggéré : ${formatCurrency(suggestedPrice.ht)} HT (${formatCurrency(suggestedPrice.ttc)} TTC).`;
+        alertTitle = 'Diagnostic rentabilité';
+        alertMessage = `La recette est bénéficiaire mais sous la marge cible de ${targetRateText}. Prix suggéré : ${formatCurrency(suggestedPrice.ht)} HT (${formatCurrency(suggestedPrice.ttc)} TTC).`;
         statusClass = 'status-medium';
-        statusText = `${formatPercent(netMargin)} — Sous l'objectif de 25% ⚠️`;
+        statusText = `${formatPercent(netMargin)} — Sous l'objectif de ${targetRateText}`;
         progressClass = 'fill-medium';
     } else {
         alertClass = 'alert-danger';
-        alertTitle = '⚠️ Attention rentabilité';
+        alertTitle = 'Attention rentabilité';
         alertMessage = `Cette recette est vendue à perte après déduction de la main d'œuvre et des frais. Prix suggéré : ${formatCurrency(suggestedPrice.ht)} HT.`;
         statusClass = 'status-low';
-        statusText = `${formatPercent(netMargin)} — Recette déficitaire ❌`;
+        statusText = `${formatPercent(netMargin)} — Recette déficitaire`;
         progressClass = 'fill-low';
     }
 
@@ -1030,9 +989,9 @@ export function showRecipeDetails(recipeId) {
             <div class="recipe-modal-title-area">
                 <h2>${escapeHTML(recipe.name)}</h2>
                 <div class="recipe-modal-subtitle">
-                    <span class="recipe-meta-pill">🍽️ ${recipe.servings || 1} portion${(recipe.servings || 1) > 1 ? 's' : ''}</span>
-                    <span class="recipe-meta-pill">⏱️ ${recipe.productionTime ? formatDuration(recipe.productionTime) : 'Temps N/A'}</span>
-                    <span class="recipe-meta-pill">📐 Coeff. Multiplicateur : ${recipe.multiplier || 1}</span>
+                    <span class="recipe-meta-pill">${recipe.servings || 1} portion${(recipe.servings || 1) > 1 ? 's' : ''}</span>
+                    <span class="recipe-meta-pill">${recipe.productionTime ? formatDuration(recipe.productionTime) : 'Temps N/A'}</span>
+                    <span class="recipe-meta-pill">Coeff. Multiplicateur : ${multiplier}</span>
                 </div>
             </div>
             <button type="button" class="modal-close-icon-btn" id="details-close-x-btn" title="Fermer (Échap)">✕</button>
@@ -1048,17 +1007,17 @@ export function showRecipeDetails(recipeId) {
             <div class="kpi-banner-card kpi-blue">
                 <span class="kpi-banner-label">Coût complet</span>
                 <span class="kpi-banner-value">${formatCurrency3(totalCostPerServing)} / p</span>
-                <span class="kpi-banner-sub">MO & Frais inclus</span>
+                <span class="kpi-banner-sub">MO &amp; Frais inclus</span>
             </div>
-            <div class="kpi-banner-card ${netMargin >= 20 ? 'kpi-green' : (netMargin >= 10 ? 'kpi-amber' : 'kpi-red')}">
+            <div class="kpi-banner-card ${netMargin >= targetPercent ? 'kpi-green' : (netMargin >= mediumThreshold ? 'kpi-amber' : 'kpi-red')}">
                 <span class="kpi-banner-label">Marge nette</span>
                 <span class="kpi-banner-value">${recipe.productionTime > 0 ? formatPercent(netMargin) : 'N/A'}</span>
-                <span class="kpi-banner-sub">Marge cible : 25%</span>
+                <span class="kpi-banner-sub">Marge cible : ${targetRateText}</span>
             </div>
             <div class="kpi-banner-card kpi-purple">
                 <span class="kpi-banner-label">Prix conseillé</span>
                 <span class="kpi-banner-value">${recipe.productionTime > 0 && recipe.servings > 0 ? formatCurrency(suggestedPrice.ht) + ' HT' : 'N/A'}</span>
-                <span class="kpi-banner-sub">${recipe.productionTime > 0 && recipe.servings > 0 ? formatCurrency(suggestedPrice.ttc) + ' TTC' : 'Calculé sur 25% de marge'}</span>
+                <span class="kpi-banner-sub">${recipe.productionTime > 0 && recipe.servings > 0 ? formatCurrency(suggestedPrice.ttc) + ' TTC' : `Calculé sur ${targetRateText} de marge`}</span>
             </div>
         </div>
 
@@ -1068,7 +1027,7 @@ export function showRecipeDetails(recipeId) {
             <div class="recipe-details-left-panel">
                 <div class="recipe-panel-card">
                     <div class="recipe-panel-header">
-                        <span>📋 Détail de la recette</span>
+                        <span>Détail de la recette</span>
                         <span style="font-size:0.85rem; font-weight:normal; color:var(--text-light);">${recipe.ingredients ? recipe.ingredients.length : 0} ingrédient(s)</span>
                     </div>
                     <div style="overflow-x:auto;">
@@ -1091,7 +1050,7 @@ export function showRecipeDetails(recipeId) {
 
                 <div class="recipe-panel-card">
                     <div class="recipe-panel-header">
-                        <span>⚠️ Allergènes détectés</span>
+                        <span>Allergènes détectés</span>
                     </div>
                     <div class="allergens-pills-container">
                         ${allergensPillsHtml}
@@ -1101,7 +1060,7 @@ export function showRecipeDetails(recipeId) {
                 ${recipe.steps ? `
                 <div class="recipe-panel-card">
                     <div class="recipe-panel-header">
-                        <span>📝 Étapes de préparation</span>
+                        <span>Étapes de préparation</span>
                     </div>
                     <div style="font-size:0.92rem; line-height:1.6; color:var(--text-light); white-space:pre-wrap;">${escapeHTML(recipe.steps)}</div>
                 </div>
@@ -1113,16 +1072,16 @@ export function showRecipeDetails(recipeId) {
                 <div class="recipe-panel-card" style="display: flex; flex-direction: column; justify-content: space-between;">
                     <div>
                         <div class="recipe-panel-header">
-                            <span>📈 Rentabilité</span>
+                            <span>Rentabilité</span>
                         </div>
 
                         <div class="rentability-hero-price">
                             <div class="rentability-price-label">Prix de vente HT</div>
                             <div class="rentability-price-value-ht">${formatCurrency3(salePriceHT)}</div>
-                            <div class="rentability-price-value-ttc">TTC : ${formatCurrency3(salePriceTTC)}</div>
+                            <div class="rentability-price-value-ttc">TTC (TVA ${formatRate(VAT_RATE * 100)}) : ${formatCurrency3(salePriceTTC)}</div>
                             ${salePricePerKgTTC !== null ? `
-                                <div class="rentability-price-badge-kg" style="white-space: nowrap !important;" title="Prix de vente TTC au kilo = (${formatCurrency3(salePriceTTC)} TTC × ${recipe.servings || 1} portions) ÷ ${totalWeightKg.toLocaleString('fr-FR', {minimumFractionDigits:3, maximumFractionDigits:3})} kg">
-                                    ⚖️&nbsp;Prix au kg&nbsp;:&nbsp;<strong>${formatCurrency(salePricePerKgTTC)}</strong>&nbsp;TTC/kg
+                                <div class="rentability-price-badge-kg" style="white-space: nowrap !important;" title="Prix de vente TTC au kilo = (${formatCurrency3(salePriceTTC)} TTC × ${recipe.servings || 1} portions) ÷ ${totalWeightKg.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg">
+                                    Prix au kg : <strong>${formatCurrency(salePricePerKgTTC)}</strong> TTC/kg
                                 </div>
                             ` : ''}
                         </div>
@@ -1145,7 +1104,7 @@ export function showRecipeDetails(recipeId) {
 
                         <div class="rentability-stats-list">
                             <div class="rentability-stat-item" style="background: rgba(79, 70, 229, 0.05); padding: 0.35rem 0.5rem; border-radius: 6px; margin-bottom: 0.35rem;">
-                                <span class="rentability-stat-label" style="font-weight: 600; color: var(--text-color);">⚖️ Prix de vente au kilo :</span>
+                                <span class="rentability-stat-label" style="font-weight: 600; color: var(--text-color);">Prix de vente au kilo :</span>
                                 <span class="rentability-stat-value font-mono" style="color: var(--primary-color); font-weight: 800;">
                                     ${salePricePerKgTTC !== null ? `${formatCurrency(salePricePerKgTTC)} TTC / kg` : '<span style="color:var(--text-light); font-weight:normal;">—</span>'}
                                 </span>
@@ -1168,10 +1127,10 @@ export function showRecipeDetails(recipeId) {
                     </div>
 
                     <div class="recipe-actions-row">
-                        <button type="button" id="details-edit-btn" class="button-primary" title="Modifier la recette">✏️ Modifier</button>
-                        <button type="button" id="details-duplicate-btn" class="button-secondary" title="Dupliquer la recette">📋 Dupliquer</button>
-                        <button type="button" id="details-print-btn" class="button-secondary" title="Imprimer la fiche technique">🖨️ Imprimer</button>
-                        <button type="button" id="details-delete-btn" class="button-danger" title="Supprimer la recette">🗑️</button>
+                        <button type="button" id="details-edit-btn" class="button-primary" title="Modifier la recette">Modifier</button>
+                        <button type="button" id="details-duplicate-btn" class="button-secondary" title="Dupliquer la recette">Dupliquer</button>
+                        <button type="button" id="details-print-btn" class="button-secondary" title="Générer et imprimer la feuille de calcul">Feuille de calcul (PDF)</button>
+                        <button type="button" id="details-delete-btn" class="button-danger" title="Supprimer la recette">Supprimer</button>
                     </div>
                 </div>
             </div>
@@ -1190,12 +1149,13 @@ export function showRecipeDetails(recipeId) {
 
     const printBtn = document.getElementById('details-print-btn');
     if (printBtn) {
-        printBtn.textContent = '📄 Feuille de calcul (PDF)';
-        printBtn.title = 'Générer et imprimer la feuille d\'audit mathématique et de calculs';
         printBtn.onclick = () => {
             const auditContainer = document.getElementById('calculation-audit-print-area');
             if (auditContainer) {
                 auditContainer.innerHTML = generateCalculationAuditHTML(recipe);
+                window.addEventListener('afterprint', () => {
+                    auditContainer.innerHTML = '';
+                }, { once: true });
             }
             window.print();
         };
@@ -1210,11 +1170,11 @@ export function showRecipeDetails(recipeId) {
     modal.style.display = 'flex';
 }
 
-// === GÉNÉRATION DE LA FEUILLE D'AUDIT DE CALCULS (IMPRESSION PDF) ===
-function generateCalculationAuditHTML(recipe) {
-    const servings = recipe.servings || 1;
-    const multiplier = recipe.multiplier || 1;
-    const prodTimeMinutes = recipe.productionTime || 0;
+// === GÉNÉRATION DE LA FEUILLE D'AUDIT DE CALCULS (IMPRESSION PDF, 0 EMOJI) ===
+export function generateCalculationAuditHTML(recipe) {
+    const servings = Math.max(1, parseFloat(recipe.servings) || 1);
+    const multiplier = Math.max(0, parseFloat(recipe.multiplier) || 0);
+    const prodTimeMinutes = Math.max(0, parseFloat(recipe.productionTime) || 0);
     const prodTimeHours = prodTimeMinutes / 60;
     const currentDateStr = new Date().toLocaleDateString('fr-FR', {
         year: 'numeric',
@@ -1222,16 +1182,45 @@ function generateCalculationAuditHTML(recipe) {
         day: 'numeric'
     });
 
-    // 1. Décomposition Matières Directes
-    // Utilise les mêmes calculs que l'interface (yield + conversion d'unités) pour garantir la cohérence
-    let ingredientRowsFoodCost = 0;
-    const ingredientRows = (recipe.ingredients || []).filter(item => !item.isSubRecipe && !item.subRecipeId && item.type !== 'subrecipe').map((item, index) => {
+    // 1. Décomposition Matières Directes & Sous-recettes (toutes les lignes incluses)
+    const ingredientRows = (recipe.ingredients || []).map((item, index) => {
+        const qty = parseFloat(item.quantity) || 0;
+
+        if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
+            const subId = parseInt(item.subRecipeId || item.ingredientId, 10);
+            const subRecipe = recipes.find(r => parseInt(r.id, 10) === subId);
+            if (!subRecipe) {
+                return `
+                    <tr>
+                        <td style="text-align:center;">${index + 1}</td>
+                        <td><strong>[Sous-recette] Introuvable (#${escapeHTML(subId)})</strong></td>
+                        <td style="text-align:right;">${qty.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} portion(s)</td>
+                        <td style="text-align:right;">—</td>
+                        <td style="text-align:right; font-weight:600;">0,00 €</td>
+                    </tr>
+                `;
+            }
+            const visited = recipe.id ? new Set([parseInt(recipe.id, 10)]) : new Set();
+            const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
+            const subCostPerServing = calculateRecipeCost(subRecipe, visited) / subServings;
+            const lineCost = subCostPerServing * qty;
+            return `
+                <tr>
+                    <td style="text-align:center;">${index + 1}</td>
+                    <td><strong>[Sous-recette] ${escapeHTML(subRecipe.name)}</strong></td>
+                    <td style="text-align:right;">${qty.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} portion(s)</td>
+                    <td style="text-align:right;">${formatCurrency3(subCostPerServing)} / portion</td>
+                    <td style="text-align:right; font-weight:600;">${formatCurrency3(lineCost)}</td>
+                </tr>
+            `;
+        }
+
         const ing = getIngredientById(item.ingredientId);
         if (!ing) {
             return `
                 <tr>
                     <td style="text-align:center;">${index + 1}</td>
-                    <td><strong>Ingrédient inconnu (#${item.ingredientId})</strong></td>
+                    <td><strong>Ingrédient inconnu (#${escapeHTML(item.ingredientId)})</strong></td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right; font-weight:600;">0,00 €</td>
@@ -1241,21 +1230,19 @@ function generateCalculationAuditHTML(recipe) {
 
         const ingUnit = ing.unit;
         const recipeUnit = item.unit || ingUnit;
-        // Conversion d'unités (ex: g → kg, cl → L)
-        const convertedQty = convertUnitQuantity(parseFloat(item.quantity) || 0, recipeUnit, ingUnit);
-        // Rendement au parage
+        const convertedQty = convertUnitQuantity(qty, recipeUnit, ingUnit);
         const yieldPct = (typeof ing.yield === 'number' && ing.yield > 0) ? ing.yield : 100;
-        const effectiveUnitPrice = (typeof ing.price === 'number' && ing.price !== null) ? ing.price / (yieldPct / 100) : 0;
+        const effectiveUnitPrice = (typeof ing.price === 'number' && Number.isFinite(ing.price))
+            ? ing.price / (yieldPct / 100)
+            : 0;
         const lineCost = effectiveUnitPrice * convertedQty;
-        ingredientRowsFoodCost += lineCost;
-
-        const yieldNote = yieldPct < 100 ? ` <small style="color:#94a3b8;">(rend. ${yieldPct}%)</small>` : '';
+        const yieldNote = yieldPct < 100 ? ` <small style="color:#666666;">(rend. ${yieldPct}%)</small>` : '';
 
         return `
             <tr>
                 <td style="text-align:center;">${index + 1}</td>
                 <td><strong>${escapeHTML(ing.name)}</strong></td>
-                <td style="text-align:right;">${item.quantity.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${escapeHTML(recipeUnit)}</td>
+                <td style="text-align:right;">${qty.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 3 })} ${escapeHTML(recipeUnit)}</td>
                 <td style="text-align:right;">${formatUnitPrice(effectiveUnitPrice)} / ${escapeHTML(ingUnit)}${yieldNote}</td>
                 <td style="text-align:right; font-weight:600;">${formatCurrency3(lineCost)}</td>
             </tr>
@@ -1288,21 +1275,30 @@ function generateCalculationAuditHTML(recipe) {
     const grossMarginPercent = salePriceHT > 0 ? ((salePriceHT - foodCostPerServing) / salePriceHT) * 100 : 0;
     const hourlyProfitability = prodTimeHours > 0 ? totalNetProfit / prodTimeHours : 0;
 
-    // 6. Tarification Cible (Marge Nette cible)
-    const suggestedPriceHT = fullCostPerServing / (1 - TARGET_NET_MARGIN);
-    const suggestedPriceTTC = suggestedPriceHT * (1 + VAT_RATE);
+    // 6. Tarification Cible (protégée contre division par zéro via calculateSuggestedPrice)
+    const suggested = calculateSuggestedPrice(recipe);
+    const suggestedPriceHT = suggested.ht;
+    const suggestedPriceTTC = suggested.ttc;
 
     // 7. Poids & Prix au Kilo TTC
     const weightInfo = calculateRecipeWeight(recipe);
     const totalWeightKg = weightInfo.totalWeightKg;
     const salePricePerKgTTC = calculateSalePricePerKgTTC(recipe, totalWeightKg);
 
+    const overheadRateStr = formatRate(OVERHEAD_RATE * 100);
+    const vatRateStr = formatRate(VAT_RATE * 100);
+    const targetMarginStr = formatRate(TARGET_NET_MARGIN * 100);
+    const vatFactorStr = formatDecimalFactor(1 + VAT_RATE);
+    const overheadFactorStr = formatDecimalFactor(OVERHEAD_RATE);
+    const targetMarginFactorStr = formatDecimalFactor(TARGET_NET_MARGIN);
+    const oneMinusTargetStr = formatDecimalFactor(1 - TARGET_NET_MARGIN);
+
     return `
         <div class="audit-sheet">
             <div class="audit-header">
                 <div class="audit-title-block">
                     <h1>FEUILLE DE CALCUL &amp; AUDIT DE RENTABILITÉ MÉTIER</h1>
-                    <div class="audit-subtitle">Fiche technique &amp; Rapport mathématique exhaustif pour client</div>
+                    <div class="audit-subtitle">Fiche technique &amp; Rapport mathématique exhaustif</div>
                 </div>
                 <div class="audit-meta-block">
                     <div><strong>Date :</strong> ${currentDateStr}</div>
@@ -1336,20 +1332,20 @@ function generateCalculationAuditHTML(recipe) {
                     </div>
                 </div>
                 <div class="audit-params-list">
-                    <span>Frais Généraux : <strong>${(OVERHEAD_RATE * 100).toFixed(0)}%</strong> du Prime Cost</span> | 
-                    <span>Taux de TVA : <strong>${(VAT_RATE * 100).toFixed(0)}%</strong></span> | 
-                    <span>Marge Nette Cible : <strong>${(TARGET_NET_MARGIN * 100).toFixed(0)}%</strong></span>
+                    <span>Frais Généraux : <strong>${overheadRateStr}</strong> du Prime Cost</span> |
+                    <span>Taux de TVA : <strong>${vatRateStr}</strong></span> |
+                    <span>Marge Nette Cible : <strong>${targetMarginStr}</strong></span>
                 </div>
             </div>
 
-            <!-- 2. Décomposition Matières Première -->
+            <!-- 2. Décomposition Matières Premières -->
             <div class="audit-section">
                 <h2>2. DÉCOMPOSITION DES COÛTS MATIÈRES DIRECTS (FOOD COST)</h2>
                 <table class="audit-table">
                     <thead>
                         <tr>
                             <th class="col-num">#</th>
-                            <th class="col-name">Ingrédient</th>
+                            <th class="col-name">Ingrédient / Sous-recette</th>
                             <th class="col-qty">Quantité nette</th>
                             <th class="col-pu">Prix Unitaire HT (après rendement)</th>
                             <th class="col-total">Coût Ligne HT</th>
@@ -1382,7 +1378,7 @@ function generateCalculationAuditHTML(recipe) {
                     </div>
                     <div class="audit-formula-row">
                         <span class="formula-label">Coût MO par portion</span>
-                        <span class="formula-expr">(${laborTimePerServingMin.toFixed(2)} min / 60) × ${CHARGED_HOURLY_RATE.toFixed(2)} €</span>
+                        <span class="formula-expr">(${laborTimePerServingMin.toFixed(2)} min / 60) × ${formatCurrency(CHARGED_HOURLY_RATE)}</span>
                         <span class="formula-val">${formatCurrency3(laborCostPerServing)}</span>
                     </div>
                     <div class="audit-formula-row bold-row">
@@ -1398,8 +1394,8 @@ function generateCalculationAuditHTML(recipe) {
                 <h2>4. FRAIS GÉNÉRAUX &amp; COÛT COMPLET (FULL COST)</h2>
                 <div class="audit-formula-grid">
                     <div class="audit-formula-row">
-                        <span class="formula-label">Frais Généraux / portion (${(OVERHEAD_RATE * 100).toFixed(0)}%)</span>
-                        <span class="formula-expr">PC_portion × ${(OVERHEAD_RATE * 100).toFixed(0)}% = ${formatCurrency3(primeCostPerServing)} × ${OVERHEAD_RATE.toFixed(2)}</span>
+                        <span class="formula-label">Frais Généraux / portion (${overheadRateStr})</span>
+                        <span class="formula-expr">PC_portion × ${overheadRateStr} = ${formatCurrency3(primeCostPerServing)} × ${overheadFactorStr}</span>
                         <span class="formula-val">${formatCurrency3(overheadPerServing)}</span>
                     </div>
                     <div class="audit-formula-row bold-row">
@@ -1425,8 +1421,8 @@ function generateCalculationAuditHTML(recipe) {
                         <span class="formula-val">${formatCurrency3(salePriceHT)} HT</span>
                     </div>
                     <div class="audit-formula-row">
-                        <span class="formula-label">Prix de Vente TTC (TVA ${(VAT_RATE*100).toFixed(0)}%)</span>
-                        <span class="formula-expr">PV_HT × ${(1 + VAT_RATE).toFixed(2)}</span>
+                        <span class="formula-label">Prix de Vente TTC (TVA ${vatRateStr})</span>
+                        <span class="formula-expr">PV_HT × ${vatFactorStr}</span>
                         <span class="formula-val">${formatCurrency3(salePriceTTC)} TTC</span>
                     </div>
                     <div class="audit-formula-row highlight-row">
@@ -1452,23 +1448,23 @@ function generateCalculationAuditHTML(recipe) {
                     <div class="audit-formula-row highlight-row">
                         <span class="formula-label">Rentabilité Horaire Gérant</span>
                         <span class="formula-expr">B_net_total / T_heures = ${formatCurrency3(totalNetProfit)} / ${prodTimeHours.toFixed(2)}h</span>
-                        <span class="formula-val">${hourlyProfitability.toFixed(2)} €/h</span>
+                        <span class="formula-val">${formatCurrency(hourlyProfitability)}/h</span>
                     </div>
                 </div>
             </div>
 
             <!-- 6. Tarification Cible Suggérée -->
             <div class="audit-section">
-                <h2>6. PRIX DE VENTE SUGGÉRÉ POUR MARGE NETTE CIBLE (${(TARGET_NET_MARGIN * 100).toFixed(0)}%)</h2>
+                <h2>6. PRIX DE VENTE SUGGÉRÉ POUR MARGE NETTE CIBLE (${targetMarginStr})</h2>
                 <div class="audit-formula-grid highlight">
                     <div class="audit-formula-row">
-                        <span class="formula-label">Prix HT Suggéré (MN ${(TARGET_NET_MARGIN * 100).toFixed(0)}%)</span>
-                        <span class="formula-expr">CC_portion / (1 - ${TARGET_NET_MARGIN.toFixed(2)}) = ${formatCurrency3(fullCostPerServing)} / ${(1 - TARGET_NET_MARGIN).toFixed(2)}</span>
+                        <span class="formula-label">Prix HT Suggéré (MN ${targetMarginStr})</span>
+                        <span class="formula-expr">CC_portion / (1 - ${targetMarginFactorStr}) = ${formatCurrency3(fullCostPerServing)} / ${oneMinusTargetStr}</span>
                         <span class="formula-val">${formatCurrency3(suggestedPriceHT)} HT</span>
                     </div>
                     <div class="audit-formula-row">
-                        <span class="formula-label">Prix TTC Suggéré</span>
-                        <span class="formula-expr">PV_HT_suggéré × ${(1 + VAT_RATE).toFixed(2)}</span>
+                        <span class="formula-label">Prix TTC Suggéré (TVA ${vatRateStr})</span>
+                        <span class="formula-expr">PV_HT_suggéré × ${vatFactorStr}</span>
                         <span class="formula-val">${formatCurrency3(suggestedPriceTTC)} TTC</span>
                     </div>
                 </div>

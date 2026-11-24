@@ -1,5 +1,8 @@
-import { mercuriale, recipes, getIngredientById, getRecipesUsingIngredient, saveData, EU_ALLERGENS, nextIngredientId } from '../data.js';
-import { formatCurrency, formatCurrency3, escapeHTML } from './common.js';
+import {
+    mercuriale, recipes, getIngredientById, getRecipesUsingIngredient,
+    saveData, EU_ALLERGENS, nextIngredientId
+} from '../data.js';
+import { formatUnitPrice, formatWeight, getUnitFamily, escapeHTML } from './common.js';
 import { displayNotifications } from './dashboard.js';
 import { showToast, showConfirm } from './ui-feedback.js';
 
@@ -17,7 +20,7 @@ export function initMercurialePage() {
     renderMercurialeTable();
 
     addIngredientBtn.addEventListener('click', () => showIngredientModal());
-    
+
     if (searchInput) {
         searchInput.addEventListener('input', () => renderMercurialeTable());
     }
@@ -35,7 +38,7 @@ export function initMercurialePage() {
                 currentSortColumn = sortKey;
                 currentSortDirection = 'asc';
             }
-            
+
             // Update sort icon indicators in all headers
             document.querySelectorAll('#mercuriale-table th.sortable').forEach(header => {
                 const iconSpan = header.querySelector('.sort-icon');
@@ -53,21 +56,8 @@ export function initMercurialePage() {
     form.addEventListener('submit', handleIngredientFormSubmit);
     document.getElementById('cancel-btn').addEventListener('click', () => closeModal(modal));
 
-    // Close on Escape
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            if (modal.style.display !== 'none') closeModal(modal);
-            const detailsModal = document.getElementById('ingredient-details-modal');
-            if (detailsModal && detailsModal.style.display !== 'none') closeModal(detailsModal);
-        }
-    });
-
-    // Close modal on click outside content
-    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
-
     const detailsModal = document.getElementById('ingredient-details-modal');
     if (detailsModal) {
-        detailsModal.addEventListener('click', (e) => { if (e.target === detailsModal) closeModal(detailsModal); });
         const closeBtn = document.getElementById('details-close-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => { closeModal(detailsModal); });
@@ -80,6 +70,11 @@ export function initMercurialePage() {
     }
 }
 
+export function refreshMercurialePage() {
+    populateFamilyFilter();
+    renderMercurialeTable();
+}
+
 function closeModal(modal) {
     modal.style.display = 'none';
 }
@@ -89,15 +84,15 @@ function populateFamilyFilter() {
     const filterSelect = document.getElementById('filter-family');
     if (!filterSelect) return;
     const currentVal = filterSelect.value;
-    
+
     // Extract unique non-empty families from the mercuriale
-    const families = [...new Set(mercuriale.map(i => i.family).filter(Boolean))].sort();
-    
+    const families = [...new Set(mercuriale.map(i => i.family).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+
     let html = '<option value="">Toutes les familles</option>';
     families.forEach(fam => {
         html += `<option value="${escapeHTML(fam)}" ${fam === currentVal ? 'selected' : ''}>${escapeHTML(fam)}</option>`;
     });
-    
+
     filterSelect.innerHTML = html;
 }
 
@@ -106,10 +101,9 @@ function generateAllergenCheckboxes() {
     const container = document.getElementById('allergen-checkboxes');
     if (!container) return;
     container.innerHTML = EU_ALLERGENS.map(allergen => `
-        <label class="allergen-checkbox-label" title="${allergen.description}">
-            <input type="checkbox" name="allergens" value="${allergen.id}">
-            <span class="allergen-checkbox-icon">${allergen.icon}</span>
-            <span class="allergen-checkbox-name">${allergen.name}</span>
+        <label class="allergen-checkbox-label" title="${escapeHTML(allergen.description)}">
+            <input type="checkbox" name="allergens" value="${escapeHTML(allergen.id)}">
+            <span class="allergen-checkbox-name">${escapeHTML(allergen.name)}</span>
         </label>
     `).join('');
 }
@@ -125,8 +119,8 @@ export function renderMercurialeTable() {
     const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
     const familyFilter = filterSelect ? filterSelect.value : '';
 
-    let filteredMercuriale = mercuriale.filter(ing => {
-        const matchesSearch = ing.name.toLowerCase().includes(searchTerm) ||
+    const filteredMercuriale = mercuriale.filter(ing => {
+        const matchesSearch = (ing.name || '').toLowerCase().includes(searchTerm) ||
             (ing.family && ing.family.toLowerCase().includes(searchTerm)) ||
             (ing.subfamily && ing.subfamily.toLowerCase().includes(searchTerm));
         const matchesFamily = !familyFilter || ing.family === familyFilter;
@@ -134,25 +128,33 @@ export function renderMercurialeTable() {
     });
 
     if (filteredMercuriale.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="8" class="table-empty">Aucune denrée trouvée.</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" class="table-empty">Aucune denrée trouvée.</td></tr>`;
         return;
     }
 
-    // Trier les denrées
+    // Trier les denrées (valeurs nulles/vides toujours placées en fin de liste)
+    const numericCols = new Set(['price', 'yield', 'weightKg']);
+    const isNumeric = numericCols.has(currentSortColumn);
+
     filteredMercuriale.sort((a, b) => {
-        let valA = a[currentSortColumn];
-        let valB = b[currentSortColumn];
+        const valA = a[currentSortColumn];
+        const valB = b[currentSortColumn];
 
-        if (valA === undefined || valA === null) valA = '';
-        if (valB === undefined || valB === null) valB = '';
+        const emptyA = valA === undefined || valA === null || valA === '' || (isNumeric && !Number.isFinite(Number(valA)));
+        const emptyB = valB === undefined || valB === null || valB === '' || (isNumeric && !Number.isFinite(Number(valB)));
 
-        if (typeof valA === 'string') {
-            const cmp = valA.localeCompare(valB, 'fr', { sensitivity: 'base' });
-            return currentSortDirection === 'asc' ? cmp : -cmp;
-        } else {
-            // Comparaison numérique
-            return currentSortDirection === 'asc' ? valA - valB : valB - valA;
+        if (emptyA && emptyB) return 0;
+        if (emptyA) return 1;
+        if (emptyB) return -1;
+
+        if (isNumeric) {
+            const numA = Number(valA);
+            const numB = Number(valB);
+            return currentSortDirection === 'asc' ? numA - numB : numB - numA;
         }
+
+        const cmp = String(valA).localeCompare(String(valB), 'fr', { sensitivity: 'base' });
+        return currentSortDirection === 'asc' ? cmp : -cmp;
     });
 
     filteredMercuriale.forEach(ing => {
@@ -161,14 +163,14 @@ export function renderMercurialeTable() {
         row.style.cursor = 'pointer';
         const allergensDisplay = renderAllergenIcons(ing.allergens);
         const yieldVal = typeof ing.yield === 'number' ? ing.yield : 100;
-        const yieldBadge = yieldVal < 100 
+        const yieldBadge = yieldVal < 100
             ? `<span class="yield-badge yield-warning" title="Perte au parage: ${100 - yieldVal}%">${yieldVal}%</span>`
             : `<span class="yield-badge">${yieldVal}%</span>`;
 
         row.innerHTML = `
             <td data-label="Intitulé">${escapeHTML(ing.name)}</td>
             <td data-label="Unité">${escapeHTML(ing.unit)}</td>
-            <td data-label="Prix HT / unité" class="text-right font-mono">${ing.price !== null && ing.price !== undefined ? formatCurrency3(ing.price) : '<span class="price-missing">N/A</span>'}</td>
+            <td data-label="Prix HT / unité" class="text-right font-mono">${typeof ing.price === 'number' && Number.isFinite(ing.price) ? formatUnitPrice(ing.price) : '<span class="price-missing">N/A</span>'}</td>
             <td data-label="Rendement %" class="text-center font-mono">${yieldBadge}</td>
             <td data-label="Famille">${escapeHTML(ing.family || '—')}</td>
             <td data-label="Sous-famille">${escapeHTML(ing.subfamily || '—')}</td>
@@ -179,16 +181,20 @@ export function renderMercurialeTable() {
     });
 }
 
-// === AFFICHAGE DES ICÔNES D'ALLERGÈNES ===
+// === AFFICHAGE DES ALLERGÈNES ===
 function renderAllergenIcons(allergens) {
     if (!allergens || allergens.length === 0) {
         return '<span class="no-allergen-text" title="Aucun allergène">–</span>';
     }
     const allergenDetails = EU_ALLERGENS.filter(a => allergens.includes(a.id));
+    if (allergenDetails.length === 0) {
+        return '<span class="no-allergen-text" title="Aucun allergène">–</span>';
+    }
+    const names = allergenDetails.map(a => a.name).join(', ');
     const icons = allergenDetails.map(a =>
-        `<span class="allergen-icon-small" title="${a.name}: ${a.description}">${a.icon}</span>`
+        `<span class="allergen-icon-small" title="${escapeHTML(a.name)}: ${escapeHTML(a.description)}">${a.icon}</span>`
     ).join('');
-    return `<div class="allergen-icons-container">${icons}</div>`;
+    return `<div class="allergen-icons-container" title="${escapeHTML(names)}">${icons}</div>`;
 }
 
 // === MODAL INGRÉDIENT ===
@@ -199,8 +205,8 @@ function showIngredientModal(ingredientId = null) {
     form.querySelectorAll('input[name="allergens"]').forEach(cb => cb.checked = false);
 
     // Récupérer les familles et sous-familles uniques existantes
-    const uniqueFamilies = [...new Set(mercuriale.map(i => i.family).filter(Boolean))].sort();
-    const uniqueSubfamilies = [...new Set(mercuriale.map(i => i.subfamily).filter(Boolean))].sort();
+    const uniqueFamilies = [...new Set(mercuriale.map(i => i.family).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+    const uniqueSubfamilies = [...new Set(mercuriale.map(i => i.subfamily).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
 
     const familySelect = document.getElementById('ingredient-family-select');
     const familyCustomInput = document.getElementById('ingredient-family-custom');
@@ -239,7 +245,7 @@ function showIngredientModal(ingredientId = null) {
     };
 
     if (ingredientId) {
-        const ingredient = getIngredientById(parseInt(ingredientId));
+        const ingredient = getIngredientById(parseInt(ingredientId, 10));
         if (!ingredient) return;
         document.getElementById('modal-title').textContent = 'Modifier la denrée';
         document.getElementById('ingredient-id').value = ingredient.id;
@@ -248,6 +254,7 @@ function showIngredientModal(ingredientId = null) {
         document.getElementById('ingredient-price').value =
             ingredient.price !== null && ingredient.price !== undefined ? ingredient.price : '';
         document.getElementById('ingredient-yield').value = typeof ingredient.yield === 'number' ? ingredient.yield : 100;
+
         // Poids brut par unité (optionnel)
         const weightKgInput = document.getElementById('ingredient-weight-kg');
         if (weightKgInput) {
@@ -289,9 +296,9 @@ function showIngredientModal(ingredientId = null) {
         }
 
         if (Array.isArray(ingredient.allergens)) {
-            ingredient.allergens.forEach(allergenId => {
-                const checkbox = form.querySelector(`input[name="allergens"][value="${allergenId}"]`);
-                if (checkbox) checkbox.checked = true;
+            const allergenIds = new Set(ingredient.allergens);
+            form.querySelectorAll('input[name="allergens"]').forEach(cb => {
+                if (allergenIds.has(cb.value)) cb.checked = true;
             });
         }
     } else {
@@ -311,6 +318,29 @@ function showIngredientModal(ingredientId = null) {
 }
 
 // === SAUVEGARDE ===
+function commitIngredientSave(ingredientId, ingredientData) {
+    if (ingredientId) {
+        const index = mercuriale.findIndex(i => parseInt(i.id, 10) === parseInt(ingredientId, 10));
+        if (index !== -1) {
+            mercuriale[index] = ingredientData;
+        } else {
+            mercuriale.push(ingredientData);
+        }
+    } else {
+        mercuriale.push(ingredientData);
+    }
+
+    saveData(recipes, mercuriale);
+    populateFamilyFilter();
+    renderMercurialeTable();
+    document.getElementById('ingredient-modal').style.display = 'none';
+    showToast(ingredientId ? 'Denrée modifiée avec succès.' : 'Denrée ajoutée avec succès.', 'success');
+
+    if (document.getElementById('alerts-content') || document.getElementById('notifications-list')) {
+        displayNotifications();
+    }
+}
+
 function handleIngredientFormSubmit(e) {
     e.preventDefault();
     const form = e.target;
@@ -319,13 +349,14 @@ function handleIngredientFormSubmit(e) {
     const yieldInputVal = form.querySelector('#ingredient-yield').value;
     const yieldVal = yieldInputVal !== '' ? parseFloat(yieldInputVal) : 100;
 
-    if (priceValue !== '' && parseFloat(priceValue) < 0) {
-        showToast('Le prix unitaire HT ne peut pas être négatif.', 'error');
+    const parsedPrice = priceValue !== '' ? parseFloat(priceValue) : null;
+    if (priceValue !== '' && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+        showToast('Le prix unitaire HT doit être un nombre positif ou nul.', 'error');
         return;
     }
 
     if (isNaN(yieldVal) || yieldVal <= 0 || yieldVal > 100) {
-        showToast('Le rendement utile doit être compris entre 1% et 100%.', 'error');
+        showToast('Le rendement utile doit être compris entre 1 % et 100 %.', 'error');
         return;
     }
 
@@ -350,10 +381,10 @@ function handleIngredientFormSubmit(e) {
     const weightKgVal = weightKgInputVal !== '' && weightKgInputVal !== undefined ? parseFloat(weightKgInputVal) : null;
 
     const ingredientData = {
-        id: ingredientId ? parseInt(ingredientId) : nextIngredientId(),
+        id: ingredientId ? parseInt(ingredientId, 10) : nextIngredientId(),
         name: form.querySelector('#ingredient-name').value.trim(),
         unit: form.querySelector('#ingredient-unit').value.trim(),
-        price: priceValue !== '' ? parseFloat(priceValue) : null,
+        price: parsedPrice,
         yield: yieldVal,
         weightKg: (weightKgVal !== null && !isNaN(weightKgVal) && weightKgVal > 0) ? weightKgVal : null,
         family: family,
@@ -361,28 +392,42 @@ function handleIngredientFormSubmit(e) {
         allergens: selectedAllergens
     };
 
+    // Prévenir si l'unité d'une denrée utilisée dans des recettes change vers une famille incompatible
     if (ingredientId) {
-        const index = mercuriale.findIndex(i => i.id == ingredientId);
-        if (index !== -1) {
-            mercuriale[index] = ingredientData;
+        const existing = getIngredientById(parseInt(ingredientId, 10));
+        if (existing) {
+            const oldUnit = String(existing.unit || '').trim();
+            const newUnit = ingredientData.unit;
+            const oldFamily = getUnitFamily(oldUnit);
+            const newFamily = getUnitFamily(newUnit);
+            const isUnitFamilyChanged = oldFamily !== newFamily || (oldFamily === 'other' && oldUnit.toLowerCase() !== newUnit.toLowerCase());
+
+            if (isUnitFamilyChanged) {
+                const usedIn = getRecipesUsingIngredient(existing.id);
+                if (usedIn.length > 0) {
+                    const recipeNames = usedIn.slice(0, 5).map(r => `<em>${escapeHTML(r.name)}</em>`).join(', ');
+                    const extra = usedIn.length > 5 ? ` et ${usedIn.length - 5} autre(s)` : '';
+                    showConfirm(
+                        `L'unité de <strong>${escapeHTML(existing.name)}</strong> passe de <strong>${escapeHTML(oldUnit)}</strong> à <strong>${escapeHTML(newUnit)}</strong> (famille d'unité incompatible).<br><br>Cette denrée est utilisée dans ${usedIn.length} recette(s) : ${recipeNames}${extra}.<br><br>Les quantités déjà saisies dans ces recettes ne pourront pas être converties automatiquement. Voulez-vous enregistrer ce changement ?`,
+                        () => commitIngredientSave(ingredientId, ingredientData),
+                        {
+                            title: 'Changement d\'unité incompatible',
+                            confirmLabel: 'Enregistrer malgré tout',
+                            cancelLabel: 'Annuler',
+                            danger: true
+                        }
+                    );
+                    return;
+                }
+            }
         }
-    } else {
-        mercuriale.push(ingredientData);
     }
 
-    saveData(recipes, mercuriale);
-    populateFamilyFilter();
-    renderMercurialeTable();
-    document.getElementById('ingredient-modal').style.display = 'none';
-    showToast(ingredientId ? 'Denrée modifiée avec succès.' : 'Denrée ajoutée avec succès.', 'success');
-
-    if (document.getElementById('alerts-content') || document.getElementById('notifications-list')) {
-        displayNotifications();
-    }
+    commitIngredientSave(ingredientId, ingredientData);
 }
 
 function deleteIngredient(ingredientId) {
-    const numericId = parseInt(ingredientId);
+    const numericId = parseInt(ingredientId, 10);
     const usedIn = getRecipesUsingIngredient(numericId);
     const ingredient = getIngredientById(numericId);
     const name = ingredient ? escapeHTML(ingredient.name) : 'cette denrée';
@@ -390,19 +435,22 @@ function deleteIngredient(ingredientId) {
     let message = `Supprimer la denrée <strong>${name}</strong> ?`;
     if (usedIn.length > 0) {
         const recipeNames = usedIn.map(r => `<em>${escapeHTML(r.name)}</em>`).join(', ');
-        message += `<br><br>⚠️ <strong>Attention :</strong> Cette denrée est utilisée dans ${usedIn.length} recette(s) : ${recipeNames}.<br><br>En la supprimant, elle sera automatiquement retirée de la liste des ingrédients de ces recettes pour préserver l'intégrité de vos calculs de coûts.`;
+        message += `<br><br><strong>Attention :</strong> Cette denrée est utilisée dans ${usedIn.length} recette(s) : ${recipeNames}.<br><br>En la supprimant, elle sera automatiquement retirée de la liste des ingrédients de ces recettes pour préserver l'intégrité de vos calculs de coûts.`;
     }
 
     showConfirm(message, () => {
-        // Nettoyage propre des références dans les recettes
+        // Nettoyage propre des références dans les recettes (sans toucher aux sous-recettes)
         if (usedIn.length > 0) {
             recipes.forEach(r => {
                 if (Array.isArray(r.ingredients)) {
-                    r.ingredients = r.ingredients.filter(item => parseInt(item.ingredientId) !== numericId);
+                    r.ingredients = r.ingredients.filter(item =>
+                        (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) ||
+                        parseInt(item.ingredientId, 10) !== numericId
+                    );
                 }
             });
         }
-        const idx = mercuriale.findIndex(i => parseInt(i.id) === numericId);
+        const idx = mercuriale.findIndex(i => parseInt(i.id, 10) === numericId);
         if (idx !== -1) {
             mercuriale.splice(idx, 1);
             saveData(recipes, mercuriale);
@@ -422,7 +470,7 @@ function deleteIngredient(ingredientId) {
 }
 
 export function showIngredientDetails(ingredientId) {
-    const ingredient = getIngredientById(parseInt(ingredientId));
+    const ingredient = getIngredientById(parseInt(ingredientId, 10));
     if (!ingredient) return;
 
     const modal = document.getElementById('ingredient-details-modal');
@@ -431,27 +479,31 @@ export function showIngredientDetails(ingredientId) {
 
     const allergenDetails = EU_ALLERGENS.filter(a => ingredient.allergens && ingredient.allergens.includes(a.id));
     const allergensHtml = allergenDetails.length > 0
-        ? allergenDetails.map(a => `<span class="allergen-badge-item" title="${a.description}">${a.icon} ${a.name}</span>`).join(' ')
+        ? allergenDetails.map(a => `<span class="allergen-badge-item" title="${escapeHTML(a.description)}">${escapeHTML(a.name)}</span>`).join(' ')
         : '<em>Aucun allergène renseigné.</em>';
 
     const yieldVal = typeof ingredient.yield === 'number' ? ingredient.yield : 100;
+    const weightDisplay = (typeof ingredient.weightKg === 'number' && ingredient.weightKg > 0)
+        ? formatWeight(ingredient.weightKg, { includeGrams: true })
+        : '—';
 
     content.innerHTML = `
         <div class="details-layout">
             <div class="details-header-info">
                 <h2>${escapeHTML(ingredient.name)}</h2>
                 <div class="details-meta-grid">
-                    <div><strong>Unité:</strong> ${escapeHTML(ingredient.unit)}</div>
-                    <div><strong>Rendement:</strong> ${yieldVal}% ${yieldVal < 100 ? `<span class="text-muted">(Perte parage: ${100 - yieldVal}%)</span>` : ''}</div>
-                    <div><strong>Famille:</strong> ${escapeHTML(ingredient.family || '—')}</div>
-                    <div><strong>Sous-famille:</strong> ${escapeHTML(ingredient.subfamily || '—')}</div>
+                    <div><strong>Unité :</strong> ${escapeHTML(ingredient.unit)}</div>
+                    <div><strong>Rendement :</strong> ${yieldVal}% ${yieldVal < 100 ? `<span class="text-muted">(Perte parage : ${100 - yieldVal}%)</span>` : ''}</div>
+                    <div><strong>Poids brut / unité :</strong> ${escapeHTML(weightDisplay)}</div>
+                    <div><strong>Famille :</strong> ${escapeHTML(ingredient.family || '—')}</div>
+                    <div><strong>Sous-famille :</strong> ${escapeHTML(ingredient.subfamily || '—')}</div>
                 </div>
             </div>
 
             <div class="details-grid-kpis">
                 <div class="kpi-card" style="grid-column: 1 / -1;">
                     <span class="kpi-label">Prix Unitaire HT (Brut)</span>
-                    <span class="kpi-value">${ingredient.price !== null && ingredient.price !== undefined ? formatCurrency3(ingredient.price) + ' / ' + escapeHTML(ingredient.unit) : '<span class="price-missing">Non spécifié (N/A)</span>'}</span>
+                    <span class="kpi-value">${typeof ingredient.price === 'number' && Number.isFinite(ingredient.price) ? formatUnitPrice(ingredient.price) + ' / ' + escapeHTML(ingredient.unit) : '<span class="price-missing">Non spécifié (N/A)</span>'}</span>
                 </div>
             </div>
 

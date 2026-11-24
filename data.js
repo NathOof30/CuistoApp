@@ -1,4 +1,4 @@
-import { convertUnitQuantity } from './js/common.js';
+import { convertUnitQuantity, roundCurrency } from './js/common.js';
 
 // === CONFIGURATION RENTABILITÉ GLOBALE (Modifiable par l'utilisateur) ===
 let VAT_RATE = 0.10;
@@ -6,18 +6,73 @@ let CHARGED_HOURLY_RATE = 22.00;
 let OVERHEAD_RATE = 0.10;
 let TARGET_NET_MARGIN = 0.25;
 
+function parseStoredSetting(key, defaultValue, min = 0, max = Infinity) {
+  if (typeof localStorage === 'undefined') return defaultValue;
+  const raw = localStorage.getItem(key);
+  if (raw === null || raw === '') return defaultValue;
+  const parsed = parseFloat(raw);
+  if (!Number.isFinite(parsed)) return defaultValue;
+  return Math.min(max, Math.max(min, parsed));
+}
+
 function updateGlobalSettings() {
-  const vatVal = localStorage.getItem('settings-vat-rate');
-  VAT_RATE = vatVal !== null ? parseFloat(vatVal) / 100 : 0.10;
+  VAT_RATE = parseStoredSetting('settings-vat-rate', 10, 0, 100) / 100;
+  CHARGED_HOURLY_RATE = parseStoredSetting('settings-charged-hourly-rate', 22, 0, 10000);
+  OVERHEAD_RATE = parseStoredSetting('settings-overhead-rate', 10, 0, 100) / 100;
+  TARGET_NET_MARGIN = parseStoredSetting('settings-target-net-margin', 25, 0, 99) / 100;
+}
 
-  const hrVal = localStorage.getItem('settings-charged-hourly-rate');
-  CHARGED_HOURLY_RATE = hrVal !== null ? parseFloat(hrVal) : 22.00;
+function getGlobalSettings() {
+  return {
+    vatRate: roundCurrency(VAT_RATE * 100),
+    chargedHourlyRate: roundCurrency(CHARGED_HOURLY_RATE),
+    overheadRate: roundCurrency(OVERHEAD_RATE * 100),
+    targetNetMargin: roundCurrency(TARGET_NET_MARGIN * 100)
+  };
+}
 
-  const ohVal = localStorage.getItem('settings-overhead-rate');
-  OVERHEAD_RATE = ohVal !== null ? parseFloat(ohVal) / 100 : 0.10;
-
-  const marginVal = localStorage.getItem('settings-target-net-margin');
-  TARGET_NET_MARGIN = marginVal !== null ? parseFloat(marginVal) / 100 : 0.25;
+function applyGlobalSettings(settings) {
+  if (!settings || typeof settings !== 'object') return true;
+  if (typeof localStorage !== 'undefined') {
+    const keys = [
+      'settings-vat-rate',
+      'settings-charged-hourly-rate',
+      'settings-overhead-rate',
+      'settings-target-net-margin'
+    ];
+    const prev = new Map(keys.map(k => [k, localStorage.getItem(k)]));
+    try {
+      const saveNum = (key, value, min, max) => {
+        const parsed = parseFloat(value);
+        if (Number.isFinite(parsed)) {
+          const clamped = Math.min(max, Math.max(min, parsed));
+          localStorage.setItem(key, String(clamped));
+        }
+      };
+      if (settings.vatRate !== undefined) saveNum('settings-vat-rate', settings.vatRate, 0, 100);
+      if (settings.chargedHourlyRate !== undefined) saveNum('settings-charged-hourly-rate', settings.chargedHourlyRate, 0, 10000);
+      if (settings.overheadRate !== undefined) saveNum('settings-overhead-rate', settings.overheadRate, 0, 100);
+      if (settings.targetNetMargin !== undefined) saveNum('settings-target-net-margin', settings.targetNetMargin, 0, 99);
+    } catch (error) {
+      // Restaurer les paramètres précédents en cas d'erreur de quota
+      prev.forEach((val, k) => {
+        try {
+          if (val === null) localStorage.removeItem(k);
+          else localStorage.setItem(k, val);
+        } catch (_) {}
+      });
+      console.error('[Storage] Erreur lors de la sauvegarde des paramètres :', error);
+      if (typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('data-save-error', { detail: { error } }));
+        } catch (_) {}
+      }
+      updateGlobalSettings();
+      return false;
+    }
+  }
+  updateGlobalSettings();
+  return true;
 }
 
 // Initialiser les paramètres globaux dès le chargement du module
@@ -144,22 +199,24 @@ function calculateRecipeCost(recipe, visitedRecipeIds = new Set()) {
   if (recipe.id) currentVisited.add(recipe.id);
 
   return recipe.ingredients.reduce((total, item) => {
+    const qty = parseFloat(item?.quantity) || 0;
+    if (qty <= 0) return total;
+
     // Cas 1 : C'est une sous-recette imbriquée
     if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
-      const subId = parseInt(item.subRecipeId || item.ingredientId);
-      const subRecipe = recipes.find(r => r.id === subId);
-      if (subRecipe && item.quantity) {
+      const subId = parseInt(item.subRecipeId || item.ingredientId, 10);
+      const subRecipe = recipes.find(r => parseInt(r.id, 10) === subId);
+      if (subRecipe) {
         const subRecipeServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
         const subRecipeCostPerServing = calculateRecipeCost(subRecipe, currentVisited) / subRecipeServings;
-        return total + (subRecipeCostPerServing * parseFloat(item.quantity));
+        return total + (subRecipeCostPerServing * qty);
       }
       return total;
     }
 
     // Cas 2 : C'est un ingrédient de la Mercuriale
     const ingredient = getIngredientById(item.ingredientId);
-    if (ingredient && ingredient.price !== null && ingredient.price !== undefined && item.quantity) {
-      const qty = parseFloat(item.quantity) || 0;
+    if (ingredient && typeof ingredient.price === 'number' && Number.isFinite(ingredient.price)) {
       // Conversion d'unités (ex: g vers kg, cl vers L)
       const recipeUnit = item.unit || ingredient.unit;
       const convertedQty = convertUnitQuantity(qty, recipeUnit, ingredient.unit);
@@ -175,16 +232,37 @@ function calculateRecipeCost(recipe, visitedRecipeIds = new Set()) {
 }
 
 /**
- * Trouve toutes les recettes qui utilisent un ingrédient donné
+ * Trouve toutes les recettes qui utilisent un ingrédient donné (exclut les sous-recettes)
  * @param {number|string} ingredientId - ID de l'ingrédient
  * @returns {Array} - Liste des recettes dépendantes
  */
 function getRecipesUsingIngredient(ingredientId) {
   const targetId = parseInt(ingredientId);
   if (isNaN(targetId)) return [];
-  return recipes.filter(r => 
-    Array.isArray(r.ingredients) && 
-    r.ingredients.some(item => parseInt(item.ingredientId) === targetId)
+  return recipes.filter(r =>
+    Array.isArray(r.ingredients) &&
+    r.ingredients.some(item =>
+      !(item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) &&
+      parseInt(item.ingredientId) === targetId
+    )
+  );
+}
+
+/**
+ * Trouve toutes les recettes qui utilisent une autre recette en tant que sous-recette
+ * @param {number|string} recipeId - ID de la sous-recette
+ * @returns {Array} - Liste des recettes parentes dépendantes
+ */
+function getRecipesUsingSubRecipe(recipeId) {
+  const targetId = parseInt(recipeId);
+  if (isNaN(targetId)) return [];
+  return recipes.filter(r =>
+    parseInt(r.id) !== targetId &&
+    Array.isArray(r.ingredients) &&
+    r.ingredients.some(item =>
+      (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) &&
+      parseInt(item.subRecipeId || item.ingredientId) === targetId
+    )
   );
 }
 
@@ -314,6 +392,40 @@ const VOLUME_TO_KG = {
 };
 
 /**
+ * Calcule le poids en kg d'une ligne d'ingrédient unique.
+ * Partagé entre calculateRecipeWeight() et le Bon d'économat.
+ *
+ * @param {Object|undefined} ingredient - La denrée issue de la mercuriale
+ * @param {number|string} quantity - Quantité dans l'unité d'utilisation
+ * @param {string} [unit] - Unité d'utilisation (défaut: ingredient.unit)
+ * @returns {{ weightKg: number, volumeApproxUsed: boolean, excluded: boolean }}
+ */
+function calculateIngredientWeightKg(ingredient, quantity, unit) {
+  const qty = typeof quantity === 'number' && Number.isFinite(quantity) ? quantity : (parseFloat(quantity) || 0);
+  if (qty <= 0) {
+    return { weightKg: 0, volumeApproxUsed: false, excluded: false };
+  }
+  if (!ingredient) {
+    return { weightKg: 0, volumeApproxUsed: false, excluded: true };
+  }
+
+  const rawUnit = unit || ingredient.unit || '';
+  const normalizedUnit = String(rawUnit).toLowerCase().trim();
+
+  if (MASS_TO_KG[normalizedUnit] !== undefined) {
+    return { weightKg: qty * MASS_TO_KG[normalizedUnit], volumeApproxUsed: false, excluded: false };
+  }
+  if (VOLUME_TO_KG[normalizedUnit] !== undefined) {
+    return { weightKg: qty * VOLUME_TO_KG[normalizedUnit], volumeApproxUsed: true, excluded: false };
+  }
+  if (typeof ingredient.weightKg === 'number' && Number.isFinite(ingredient.weightKg) && ingredient.weightKg > 0) {
+    const convertedQty = convertUnitQuantity(qty, rawUnit, ingredient.unit);
+    return { weightKg: convertedQty * ingredient.weightKg, volumeApproxUsed: false, excluded: false };
+  }
+  return { weightKg: 0, volumeApproxUsed: false, excluded: true };
+}
+
+/**
  * Calcule le poids total en kilogrammes (kg) d'une recette
  * Prend en compte :
  *  - Les unités de masse (kg, g, mg...)
@@ -346,38 +458,29 @@ function calculateRecipeWeight(recipe, visitedRecipeIds = new Set()) {
 
     // Cas 1 : Sous-recette imbriquée
     if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
-      const subId = parseInt(item.subRecipeId || item.ingredientId);
-      const subRecipe = recipes.find(r => r.id === subId);
-      if (subRecipe && item.quantity) {
+      const subId = parseInt(item.subRecipeId || item.ingredientId, 10);
+      const subRecipe = recipes.find(r => parseInt(r.id, 10) === subId);
+      if (subRecipe) {
         const subServings = Math.max(1, parseFloat(subRecipe.servings) || 1);
         const subRes = calculateRecipeWeight(subRecipe, currentVisited);
         const subWeightPerServing = subRes.totalWeightKg / subServings;
         totalWeightKg += subWeightPerServing * qty;
         excludedCount += subRes.excludedCount;
         if (subRes.volumeApproxUsed) volumeApproxUsed = true;
+      } else {
+        excludedCount++;
       }
       continue;
     }
 
     // Cas 2 : Ingrédient issu de la mercuriale
     const ingredient = getIngredientById(item.ingredientId);
-    if (!ingredient) {
+    const weightRes = calculateIngredientWeightKg(ingredient, qty, item.unit || ingredient?.unit);
+    if (weightRes.excluded) {
       excludedCount++;
-      continue;
-    }
-
-    const recipeUnit = String(item.unit || ingredient.unit || '').toLowerCase().trim();
-
-    if (MASS_TO_KG[recipeUnit] !== undefined) {
-      totalWeightKg += qty * MASS_TO_KG[recipeUnit];
-    } else if (VOLUME_TO_KG[recipeUnit] !== undefined) {
-      totalWeightKg += qty * VOLUME_TO_KG[recipeUnit];
-      volumeApproxUsed = true;
-    } else if (typeof ingredient.weightKg === 'number' && ingredient.weightKg > 0) {
-      const convertedQty = convertUnitQuantity(qty, item.unit || ingredient.unit, ingredient.unit);
-      totalWeightKg += convertedQty * ingredient.weightKg;
     } else {
-      excludedCount++;
+      totalWeightKg += weightRes.weightKg;
+      if (weightRes.volumeApproxUsed) volumeApproxUsed = true;
     }
   }
 
@@ -412,11 +515,8 @@ function calculateSalePricePerKgTTC(recipe, totalWeightKgOverride = null) {
   const salePriceHT = costPerServing * multiplier;
   const salePriceTTC = salePriceHT * (1 + VAT_RATE);
 
-  // Prix de vente TTC unitaire commercial arrondi à la dizaine de centimes (identique au prix facturé au client)
-  let unitTTC = Math.ceil(salePriceTTC * 10) / 10;
-  if (salePriceTTC > 0 && salePriceTTC < 0.10) {
-    unitTTC = Math.ceil(salePriceTTC * 100) / 100;
-  }
+  // Prix de vente TTC unitaire arrondi au centime (2 décimales)
+  const unitTTC = roundCurrency(salePriceTTC);
 
   const totalRevenueTTC = unitTTC * servings;
   const pricePerKg = totalRevenueTTC / weight;
@@ -446,10 +546,8 @@ function calculateSalePricePerKgHT(recipe, totalWeightKgOverride = null) {
   const multiplier = Math.max(0, parseFloat(recipe.multiplier) || 0);
   const salePriceHT = costPerServing * multiplier;
 
-  let unitHT = Math.ceil(salePriceHT * 10) / 10;
-  if (salePriceHT > 0 && salePriceHT < 0.10) {
-    unitHT = Math.ceil(salePriceHT * 100) / 100;
-  }
+  // Prix de vente HT unitaire arrondi au centime (2 décimales)
+  const unitHT = roundCurrency(salePriceHT);
 
   const totalRevenueHT = unitHT * servings;
   const pricePerKg = totalRevenueHT / weight;
@@ -473,8 +571,8 @@ function getRecipeAllergens(recipe, visitedRecipeIds = new Set()) {
   const allergenSet = new Set();
   recipe.ingredients.forEach(item => {
     if (item.isSubRecipe || item.type === 'subrecipe' || item.subRecipeId) {
-      const subId = parseInt(item.subRecipeId || item.ingredientId);
-      const subRecipe = recipes.find(r => r.id === subId);
+      const subId = parseInt(item.subRecipeId || item.ingredientId, 10);
+      const subRecipe = recipes.find(r => parseInt(r.id, 10) === subId);
       if (subRecipe) {
         const subAllergens = getRecipeAllergens(subRecipe, currentVisited);
         subAllergens.forEach(a => allergenSet.add(a));
@@ -510,19 +608,44 @@ function ingredientHasAllergen(ingredientId, allergenId) {
   return ingredient && Array.isArray(ingredient.allergens) && ingredient.allergens.includes(allergenId);
 }
 
-// Pour simuler la persistance des données
+// Persistance locale des données avec gestion d'erreur de quota et rollback atomique
 function saveData(recipesToSave = recipes, mercurialeToSave = mercuriale) {
-  localStorage.setItem('culinary-recipes', JSON.stringify(recipesToSave));
-  localStorage.setItem('culinary-mercuriale', JSON.stringify(mercurialeToSave));
-  try {
-    const detail = { recipes: recipesToSave, mercuriale: mercurialeToSave };
-    window.dispatchEvent(new CustomEvent('data-saved', { detail }));
-  } catch (_) {
-    // Ignore if CustomEvent not available
+  if (typeof localStorage !== 'undefined') {
+    const prevRecipes = localStorage.getItem('culinary-recipes');
+    const prevMercuriale = localStorage.getItem('culinary-mercuriale');
+    try {
+      localStorage.setItem('culinary-recipes', JSON.stringify(recipesToSave));
+      localStorage.setItem('culinary-mercuriale', JSON.stringify(mercurialeToSave));
+    } catch (error) {
+      // Rollback pour éviter un état incohérent dans localStorage
+      try {
+        if (prevRecipes === null) localStorage.removeItem('culinary-recipes');
+        else localStorage.setItem('culinary-recipes', prevRecipes);
+        if (prevMercuriale === null) localStorage.removeItem('culinary-mercuriale');
+        else localStorage.setItem('culinary-mercuriale', prevMercuriale);
+      } catch (_) {}
+      console.error('[Storage] Erreur lors de la sauvegarde dans localStorage :', error);
+      if (typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('data-save-error', { detail: { error } }));
+        } catch (_) {}
+      }
+      return false;
+    }
   }
+  if (typeof window !== 'undefined') {
+    try {
+      const detail = { recipes: recipesToSave, mercuriale: mercurialeToSave };
+      window.dispatchEvent(new CustomEvent('data-saved', { detail }));
+    } catch (_) {
+      // Ignore if CustomEvent not available
+    }
+  }
+  return true;
 }
 
 function loadData() {
+  if (typeof localStorage === 'undefined') return;
   const savedRecipes = localStorage.getItem('culinary-recipes');
   const savedMercuriale = localStorage.getItem('culinary-mercuriale');
   if (savedRecipes) {
@@ -542,85 +665,18 @@ function loadData() {
     } catch (_) {}
   }
 
-  // Injection intelligente unique pour les nems et ses ingrédients
-  const hasBeenInjected = localStorage.getItem('nems-recipe-injected');
-  if (!hasBeenInjected) {
-    const defaultSimuIngredients = [
-      { id: 12, name: 'Poitrine de porc', price: 0.00655, unit: 'g', family: 'Boucherie', subfamily: 'Porc', allergens: [] },
-      { id: 13, name: 'Carotte', price: 0.002, unit: 'g', family: 'Légumerie', subfamily: 'Légumes', allergens: [] },
-      { id: 14, name: 'Vermicelles de soja', price: 0.0093, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
-      { id: 15, name: 'Champignons noirs', price: 0.015, unit: 'g', family: 'Épicerie', subfamily: 'Sec', allergens: [] },
-      { id: 16, name: 'Sauce huîtres PANDA', price: 4.80, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['molluscs'] },
-      { id: 17, name: 'Huile de sésame', price: 15.00, unit: 'L', family: 'Épicerie', subfamily: 'Condiments', allergens: ['sesame'] },
-      { id: 18, name: 'Poivre blanc moulu', price: 0.02, unit: 'g', family: 'Épicerie', subfamily: 'Épices', allergens: [] },
-      { id: 19, name: 'Galettes de riz 22CM (lot de 35)', price: 3.90, unit: 'lot', family: 'Épicerie', subfamily: 'Sec', allergens: [] }
-    ];
-
-    let modified = false;
-    defaultSimuIngredients.forEach(item => {
-      const exists = mercuriale.some(ing => ing.name.toLowerCase().trim() === item.name.toLowerCase().trim());
-      if (!exists) {
-        const idConflict = mercuriale.some(ing => ing.id === item.id);
-        const newId = idConflict ? (mercuriale.length > 0 ? Math.max(...mercuriale.map(i => i.id)) + 1 : item.id) : item.id;
-        mercuriale.push({ ...item, id: newId });
-        modified = true;
-      }
-    });
-
-    const nemRecipeName = 'Nems Kim Chi Pho (100 portions)';
-    const recipeExists = recipes.some(r => r.name.toLowerCase().trim() === nemRecipeName.toLowerCase().trim());
-    if (!recipeExists) {
-      const getIdByName = (name, fallbackId) => {
-        const found = mercuriale.find(ing => ing.name.toLowerCase().trim() === name.toLowerCase().trim());
-        return found ? found.id : fallbackId;
-      };
-
-      const newRecipe = {
-        id: recipes.length > 0 ? Math.max(...recipes.map(r => r.id)) + 1 : 4,
-        name: nemRecipeName,
-        servings: 100,
-        multiplier: 3.2,
-        productionTime: 120,
-        steps: "Préparer la farce en mélangeant tous les ingrédients hachés, hydrater les champignons noirs et les vermicelles de soja avant de les incorporer, assaisonner avec la sauce huîtres, l'huile de sésame, le sel, le sucre et le poivre blanc, rouler dans les galettes de riz réhydratées, puis frire en deux bains.",
-        ingredients: [
-          { ingredientId: getIdByName('Poitrine de porc', 12), quantity: 2500 },
-          { ingredientId: getIdByName('Carotte', 13), quantity: 1250 },
-          { ingredientId: getIdByName('Oignon', 8), quantity: 1250 },
-          { ingredientId: getIdByName('Vermicelles de soja', 14), quantity: 500 },
-          { ingredientId: getIdByName('Champignons noirs', 15), quantity: 200 },
-          { ingredientId: getIdByName('Oeuf', 2), quantity: 10 },
-          { ingredientId: getIdByName('Sel fin', 10), quantity: 15 },
-          { ingredientId: getIdByName('Sucre', 3), quantity: 33 },
-          { ingredientId: getIdByName('Sauce huîtres PANDA', 16), quantity: 0.135 },
-          { ingredientId: getIdByName('Huile de sésame', 17), quantity: 0.035 },
-          { ingredientId: getIdByName('Poivre blanc moulu', 18), quantity: 8 },
-          { ingredientId: getIdByName('Galettes de riz 22CM (lot de 35)', 19), quantity: 3 }
-        ]
-      };
-      recipes.push(newRecipe);
-      modified = true;
-    }
-
-    localStorage.setItem('nems-recipe-injected', 'true');
-    if (modified) {
-      saveData(recipes, mercuriale);
-    }
-  }
-
-  // Audit et auto-correction des erreurs de saisie d'unités (ex: riz saisi à 0.6 g au lieu de 0.6 kg)
-  const repaired = auditAndRepairRecipes(recipes, mercuriale);
-  if (repaired > 0) {
-    saveData(recipes, mercuriale);
-  }
+  // Détection non destructive d'éventuelles anomalies de saisie d'unité
+  auditAndRepairRecipes(recipes, mercuriale);
 }
 
 /**
- * Détecte et corrige automatiquement les anomalies manifestes de saisie d'unité
- * (ex: Riz thai ou farine acheté au kg mais saisi avec quantity = 0.6 et unit = 'g' au lieu de 0.6 kg).
+ * Détecte de façon strictement non destructive les quantités potentiellement suspectes
+ * (ex: ingrédient acheté au kg saisi à < 1 g). Ne modifie jamais les données utilisateur.
+ * @returns {Array<{ recipeId: number, recipeName: string, ingredientName: string, quantity: number, unit: string, buyUnit: string }>}
  */
 function auditAndRepairRecipes(recipesList, mercurialeList) {
-  let repairedCount = 0;
-  if (!Array.isArray(recipesList) || !Array.isArray(mercurialeList)) return 0;
+  const warnings = [];
+  if (!Array.isArray(recipesList) || !Array.isArray(mercurialeList)) return warnings;
   const mercMap = new Map(mercurialeList.map(m => [m.id, m]));
 
   recipesList.forEach(recipe => {
@@ -633,23 +689,29 @@ function auditAndRepairRecipes(recipesList, mercurialeList) {
       const useUnit = String(item.unit || '').toLowerCase().trim();
       const qty = parseFloat(item.quantity);
 
-      // Si ingrédient acheté au kg et quantité < 1 avec unité 'g' (ex: 0.6 g au lieu de 0.6 kg)
-      if (buyUnit === 'kg' && useUnit === 'g' && qty > 0 && qty < 1) {
-        console.warn(`[Auto-Repair] Correction d'unité pour "${ing.name}" dans "${recipe.name}": ${qty} g -> ${qty} kg`);
-        item.unit = 'kg';
-        repairedCount++;
-      } else if (buyUnit === 'l' && (useUnit === 'ml' || useUnit === 'cl') && qty > 0 && qty < 1) {
-        console.warn(`[Auto-Repair] Correction d'unité pour "${ing.name}" dans "${recipe.name}": ${qty} ${item.unit} -> ${qty} L`);
-        item.unit = 'L';
-        repairedCount++;
+      if (
+        (buyUnit === 'kg' && useUnit === 'g' && qty > 0 && qty < 1) ||
+        (buyUnit === 'l' && (useUnit === 'ml' || useUnit === 'cl') && qty > 0 && qty < 1)
+      ) {
+        const warning = {
+          recipeId: recipe.id,
+          recipeName: recipe.name,
+          ingredientName: ing.name,
+          quantity: qty,
+          unit: item.unit,
+          buyUnit: ing.unit
+        };
+        warnings.push(warning);
+        console.warn(`[Audit] Quantité très faible détectée pour "${ing.name}" dans "${recipe.name}": ${qty} ${item.unit} (unité d'achat : ${ing.unit}). Aucune modification automatique appliquée.`);
       }
     });
   });
 
-  return repairedCount;
+  return warnings;
 }
 
 function isDataLoaded() {
+  if (typeof localStorage === 'undefined') return false;
   return !!localStorage.getItem('culinary-mercuriale') || !!localStorage.getItem('culinary-recipes');
 }
 
@@ -661,10 +723,24 @@ if (isDataLoaded()) {
 
 function setData(newData) {
   if (newData && Array.isArray(newData.recipes) && Array.isArray(newData.mercuriale)) {
-    recipes = newData.recipes;
-    mercuriale = newData.mercuriale;
+    const prevRecipes = [...recipes];
+    const prevMercuriale = [...mercuriale];
+    const prevSettings = getGlobalSettings();
+
+    if (!saveData(newData.recipes, newData.mercuriale)) {
+      return false;
+    }
+    if (newData.settings && typeof newData.settings === 'object') {
+      if (!applyGlobalSettings(newData.settings)) {
+        // Restaurer les données précédentes si la sauvegarde des paramètres échoue
+        saveData(prevRecipes, prevMercuriale);
+        applyGlobalSettings(prevSettings);
+        return false;
+      }
+    }
+    recipes.splice(0, recipes.length, ...newData.recipes);
+    mercuriale.splice(0, mercuriale.length, ...newData.mercuriale);
     auditAndRepairRecipes(recipes, mercuriale);
-    saveData(recipes, mercuriale);
     return true;
   }
   return false;
@@ -700,9 +776,12 @@ export {
   OVERHEAD_RATE,
   TARGET_NET_MARGIN,
   updateGlobalSettings,
+  getGlobalSettings,
+  applyGlobalSettings,
   // Fonctions de base
   getIngredientById,
   getRecipesUsingIngredient,
+  getRecipesUsingSubRecipe,
   calculateRecipeCost,
   saveData,
   loadData,
@@ -719,6 +798,7 @@ export {
   calculateHourlyProfitability,
   calculateSuggestedPrice,
   // Fonctions poids et prix au kilo
+  calculateIngredientWeightKg,
   calculateRecipeWeight,
   calculateSalePricePerKgTTC,
   calculateSalePricePerKgHT,

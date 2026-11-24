@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bon d'économat - Gestion Culinaire</title>
     <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body>
@@ -23,27 +22,28 @@
     <main id="app-container" class="bon-economat-container">
         <div class="page-header">
             <div>
-                <h2>📦 Bon d'Économat & Mercuriale de Sortie</h2>
-                <p class="page-subtitle">Sélectionnez vos recettes et le nombre de portions pour générer la liste des ingrédients et l'estimation de vente.</p>
+                <h2>Bon d'Économat &amp; Mercuriale de Sortie</h2>
+                <p class="page-subtitle">Sélectionnez vos recettes et le nombre de portions pour générer la liste des
+                    ingrédients, les poids par portion et l'estimation de vente.</p>
             </div>
         </div>
 
         <div class="card bon-economat-card">
             <div class="card-header-title">
-                <h3>📋 Sélection des recettes & portions</h3>
+                <h3>Sélection des recettes &amp; portions</h3>
                 <span class="card-subtitle-badge">Calcul dynamique des besoins</span>
             </div>
-            
+
             <div id="recipe-selection-area" class="recipe-selection-grid">
                 <!-- Recipe selectors will be added here by JS -->
             </div>
 
             <div class="bon-economat-actions">
-                <button id="add-recipe-selector-btn" class="button-secondary btn-with-icon">
-                    <span>➕</span> Ajouter une recette
+                <button id="add-recipe-selector-btn" class="button-secondary">
+                    + Ajouter une recette
                 </button>
-                <button id="generate-btn" class="button-primary btn-with-icon btn-lg">
-                    <span>⚡</span> Générer le bon d’économat
+                <button id="generate-btn" class="button-primary btn-lg">
+                    Générer le bon d'économat
                 </button>
             </div>
         </div>
@@ -53,14 +53,14 @@
             <div id="sales-quote" class="card sales-quote-card">
                 <div class="quote-header">
                     <div>
-                        <h3>📊 Devis de Vente & Projection de Marge</h3>
-                        <p class="sales-quote-description">Estimation des revenus et de la marge brute basée sur les recettes et portions sélectionnées.</p>
+                        <h3>Devis de Vente &amp; Projection de Marge</h3>
+                        <p class="sales-quote-description">Estimation des revenus et de la marge brute basée sur les
+                            recettes et portions sélectionnées.</p>
                     </div>
                 </div>
-                
+
                 <div class="sales-quote-grid">
                     <div class="quote-card quote-cost">
-                        <div class="quote-icon">🛒</div>
                         <div class="quote-info">
                             <span class="quote-label">Coût Denrées Total HT</span>
                             <span class="quote-value" id="quote-ingredients-cost">0,00 €</span>
@@ -68,7 +68,6 @@
                     </div>
 
                     <div class="quote-card">
-                        <div class="quote-icon">💶</div>
                         <div class="quote-info">
                             <span class="quote-label">Chiffre d'Affaires HT</span>
                             <span class="quote-value" id="total-sale-price-ht">0,00 €</span>
@@ -76,15 +75,13 @@
                     </div>
 
                     <div class="quote-card">
-                        <div class="quote-icon">🧾</div>
                         <div class="quote-info">
-                            <span class="quote-label">Chiffre d'Affaires TTC (TVA 10%)</span>
+                            <span class="quote-label" id="quote-ttc-label">Chiffre d'Affaires TTC (TVA 10 %)</span>
                             <span class="quote-value" id="total-sale-price-ttc">0,00 €</span>
                         </div>
                     </div>
 
                     <div class="quote-card quote-profit">
-                        <div class="quote-icon">📈</div>
                         <div class="quote-info">
                             <span class="quote-label">Marge Brute Estimée</span>
                             <span class="quote-value" id="total-gross-margin">0,00 €</span>
@@ -96,33 +93,28 @@
             <!-- Header du Bon d'Économat et Boutons d'exportation -->
             <div class="results-header-bar">
                 <div class="results-title-group">
-                    <h2>📋 Ingrédients à Prélever</h2>
+                    <h2>Ingrédients à Prélever</h2>
                     <span class="badge-results-count" id="results-count-badge">Besoins agrégés</span>
                 </div>
                 <div class="header-actions">
-                    <button id="export-csv-btn" class="button-secondary btn-with-icon">
-                        <span>📊</span> Exporter CSV
-                    </button>
-                    <button id="export-txt-btn" class="button-secondary btn-with-icon">
-                        <span>📄</span> TXT Tabulé
-                    </button>
-                    <button id="export-fixed-txt-btn" class="button-secondary btn-with-icon">
-                        <span>📝</span> TXT Colonnes
-                    </button>
-                    <button id="export-pdf-btn" class="button-secondary btn-with-icon">
-                        <span>📄</span> PDF
-                    </button>
+                    <button id="export-csv-btn" class="button-secondary">Exporter CSV</button>
+                    <button id="export-txt-btn" class="button-secondary">TXT Tabulé</button>
+                    <button id="export-fixed-txt-btn" class="button-secondary">TXT Colonnes</button>
+                    <button id="export-pdf-btn" class="button-primary">PDF Complet</button>
                 </div>
             </div>
 
             <!-- Récapitulatif Global des Denrées -->
             <div id="summary-breakdown" class="card bon-summary-card">
                 <div class="card-header-title">
-                    <h3>🧺 Récapitulatif Global des Denrées (Économat)</h3>
-                    <p class="card-description">Liste consolidée de tous les ingrédients nécessaires pour la commande ou le prélèvement en réserve.</p>
+                    <div>
+                        <h3>Récapitulatif Global des Denrées (Économat)</h3>
+                        <p class="card-description">Liste consolidée de tous les ingrédients nécessaires pour la
+                            commande ou le prélèvement en réserve.</p>
+                    </div>
                     <div class="export-actions">
-                        <button type="button" class="button-secondary btn-with-icon" data-print-mode="summary">
-                            <span>📄</span> PDF
+                        <button type="button" class="button-secondary" data-print-mode="summary">
+                            PDF Total
                         </button>
                     </div>
                 </div>
@@ -141,16 +133,20 @@
                         </tbody>
                     </table>
                 </div>
-                
+                <p id="summary-weight-note" class="bon-table-note" style="display: none;"></p>
+
                 <div class="global-total-banner">
-                    <span class="total-banner-label">Coût Total des Denrées (HT) :</span>
+                    <div>
+                        <span class="total-banner-label">Coût Total des Denrées (HT)</span>
+                        <div class="global-total-sub" id="global-total-meta"></div>
+                    </div>
                     <span class="total-banner-value" id="global-total-cost">0,00 €</span>
                 </div>
             </div>
 
             <!-- Détail Recette par Recette -->
             <div id="detailed-breakdown" class="detailed-breakdown-section">
-                <h3 class="section-title">📖 Détail par Recette</h3>
+                <h3 class="section-title">Détail par Recette</h3>
                 <!-- Content generated by JS -->
             </div>
         </div>

@@ -3,8 +3,8 @@
 ═══════════════════════════════════════════════════════════════════════════════
 
 Date de création : 8 février 2026
-Dernière mise à jour : 15 juillet 2026 (Intégration du modèle Prime Cost SAS)
-Version : 3.0 (SAS & Prime Cost)
+Dernière mise à jour : 24 novembre 2026 (Arrondi 2 décimales & Bon d'économat enrichi)
+Version : 3.1 (SAS, Prime Cost & Arrondi 2 décimales)
 
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -66,24 +66,29 @@ depuis le formulaire du Tableau de bord (enregistrés dans le localStorage) :
 ═══════════════════════════════════════════════════════════════════════════════
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ RÈGLE D'ARRONDI STRICTE (formatCurrency)                                    │
+│ RÈGLE D'ARRONDI STANDARD À 2 DÉCIMALES (roundCurrency / formatCurrency)     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│ Afin de garantir la rentabilité et d'absorber les micro-pertes de           │
-│ manipulation, TOUTES les valeurs monétaires affichées sur l'interface       │
-│ subissent un arrondi supérieur obligatoire :                                │
+│ Tous les montants monétaires affichés et exportés sont arrondis au centime  │
+│ (2 décimales exactes) via un arrondi mathématique standard protégé contre   │
+│ les imprécisions flottantes IEEE-754 :                                      │
 │                                                                             │
-│ 1. RÈGLE PRINCIPALE : Arrondi à la dizaine de centimes supérieure           │
-│    Formule : Arrondi = Math.ceil(Montant × 10) ÷ 10                         │
-│    Exemple : 4.01 € devient 4.10 €                                          │
+│ 1. RÈGLE PRINCIPALE (formatCurrency / roundCurrency) :                      │
+│    Formule : Arrondi = Math.sign(x) × Math.round((|x| + 1e-12) × 100) ÷ 100 │
+│    Exemples :                                                               │
+│      • 0.009 € → 0,01 €                                                     │
+│      • 0.09 €  → 0,09 € (non arrondi à 0,10 €)                              │
+│      • 1.9006 € → 1,90 €                                                    │
+│      • -12.39 € → -12,39 €                                                  │
 │                                                                             │
-│ 2. EXCEPTION (Micro-prix < 0.10 €) : Arrondi au centime supérieur           │
-│    Formule : Arrondi = Math.ceil(Montant × 100) ÷ 100                       │
-│    Exemple : 0.072 € devient 0.08 € (évite de gonfler à 0.10 €)             │
+│ 2. PRIX UNITAIRES MICRO (< 0,01 €, formatUnitPrice) :                       │
+│    Pour les denrées facturées au gramme dont le prix unitaire est inférieur │
+│    à 0,01 € (ex: 0,0012 €/g), l'affichage conserve 3 à 4 décimales afin     │
+│    d'éviter d'afficher 0,00 €. Dès 0,01 €, la règle à 2 décimales s'applique│
 │                                                                             │
-│ IMPORTANT : Les calculs intermédiaires en base de données et en mémoire     │
-│ utilisent les valeurs réelles non arrondies pour éviter l'accumulation      │
-│ d'erreurs d'arrondi. L'arrondi est appliqué uniquement à l'affichage.       │
+│ IMPORTANT : Les calculs intermédiaires en mémoire utilisent les valeurs     │
+│ réelles non arrondies pour éviter l'accumulation d'erreurs. Les quantités   │
+│ massiques et volumiques conservent leurs 3 décimales (ex: 0,002 kg).        │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -245,12 +250,19 @@ standardisée du Prime Cost.
 │ FORMULE DU PRIX DE VENTE AU KILO TTC :                                      │
 │   Prix de vente au kg TTC = (PV TTC unitaire × Portions) ÷ Poids total (kg) │
 │                                                                             │
-│ RÈGLE D'AFFICHAGE DU PIED DE TABLEAU :                                      │
-│   La ligne "⚖️ Total recette" affiche :                                     │
-│   • Quantité : Poids total de la recette en kg (ex: 2,498 kg)               │
-│   • Sous-total : Coût matière total pour ce poids total (ex: 21,10 €)       │
-│   • Le Prix de vente au kilo TTC est mis en avant dans la carte Rentabilité │
-│     et récapitulé en bas de tableau.                                        │
+│ RÈGLE D'AFFICHAGE DU PIED DE TABLEAU (Fiche Recette & Bon d'économat) :     │
+│   • Fiche recette : la ligne "Total recette" affiche le poids total (kg)    │
+│     et le coût matière total (HT).                                          │
+│   • Bon d'économat (écran, CSV/TXT et 3 modes PDF : Total, Par recette,     │
+│     Complet) :                                                              │
+│     - Nombre de portions choisies (N) affiché pour chaque recette.          │
+│     - Chaque tableau intègre un pied de tableau complet (total poids +      │
+│       total prix HT, et total portions sur la synthèse des recettes).       │
+│     - Chaque recette affiche une ligne "Par portion (1 portion)" indiquant  │
+│       le poids par portion en kg et g (Poids total ÷ N) et le coût HT par   │
+│       portion (Coût total ÷ N).                                             │
+│     - Les denrées sans poids unitaire renseigné (weightKg) sont listées     │
+│       en note de bas de tableau (poids partiel).                            │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -298,51 +310,51 @@ standardisée du Prime Cost.
 │ ÉTAPE 1 : COÛT MATIÈRE (CM / FOOD COST)                                     │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   CM total brut = 14.00 + 3.00 + 0.25 + 0.225 + 0.0768 + 1.50               │
-│                 = 19.0518 €                          → AFFICHÉ : 19.052 €   │
-│   CM unitaire brut = 19.0518 ÷ 4 = 4.76295 €         → AFFICHÉ : 4.80 €     │
+│                 = 19.0518 €                          → AFFICHÉ : 19,05 €    │
+│   CM unitaire brut = 19.0518 ÷ 4 = 4.76295 €         → AFFICHÉ : 4,76 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 2 : COÛT MAIN D'ŒUVRE (MO / LABOR COST)                               │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   MO total brut = (20 ÷ 60) × 22.00 = 7.333 €        → AFFICHÉ : 7.333 €    │
-│   MO unitaire brut = 7.333 ÷ 4 = 1.833 €             → AFFICHÉ : 1.90 €     │
+│   MO total brut = (20 ÷ 60) × 22.00 = 7.3333 €       → AFFICHÉ : 7,33 €     │
+│   MO unitaire brut = 7.3333 ÷ 4 = 1.8333 €           → AFFICHÉ : 1,83 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 3 : PRIME COST & FRAIS GÉNÉRAUX (FG / OVERHEAD)                       │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   Prime Cost total = 19.0518 + 7.3333 = 26.3851 €                           │
-│   FG total brut = 26.3851 × 0.10 = 2.6385 €          → AFFICHÉ : 2.64 €     │
+│   FG total brut = 26.3851 × 0.10 = 2.6385 €          → AFFICHÉ : 2,64 €     │
 │   FG unitaire brut = 2.6385 ÷ 4 = 0.6596 €                                  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 4 : COÛT COMPLET (FULL COST)                                          │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   Coût Complet total = 26.3851 + 2.6385 = 29.0236 €                         │
-│   Coût Complet unitaire brut = 29.0236 ÷ 4 = 7.2559 € → AFFICHÉ : 7.30 €    │
+│   Coût Complet unitaire brut = 29.0236 ÷ 4 = 7.2559 € → AFFICHÉ : 7,26 €    │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 5 : PRIX ACTUEL ET MARGES                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   PV HT actuel = 4.76295 × 3.5 = 16.6703 €           → AFFICHÉ : 16.70 €    │
-│   PV TTC actuel = 16.6703 × 1.10 = 18.3374 €         → AFFICHÉ : 18.40 €    │
+│   PV HT actuel = 4.76295 × 3.5 = 16.6703 €           → AFFICHÉ : 16,67 €    │
+│   PV TTC actuel = 16.6703 × 1.10 = 18.3374 €         → AFFICHÉ : 18,34 €    │
 │   Marge Brute = ((16.6703 - 4.76295) ÷ 16.6703) × 100                       │
-│               = 71.428%                              → AFFICHÉE : 71.4% ✅  │
+│               = 71.428%                              → AFFICHÉE : 71.4%     │
 │   Marge Nette réelle = ((16.6703 - 7.2559) ÷ 16.6703) × 100                 │
-│                      = 56.474%                       → AFFICHÉE : 56.5% ✅  │
+│                      = 56.474%                       → AFFICHÉE : 56.5%     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 6 : RENTABILITÉ HORAIRE COMPLÉMENTAIRE                                │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   Profit total brut = (16.6703 - 7.2559) × 4 = 37.6576 €                    │
 │   Profit/heure brut = 37.6576 ÷ (20 ÷ 60)                                   │
-│                     = 112.973 €/h                    → AFFICHÉ : 113.00 €/h │
-│   (Interprétation : Salaires et frais payés, l'activité dégage 113.00 €/h net)│
+│                     = 112.973 €/h                    → AFFICHÉ : 112,97 €/h │
+│   (Interprétation : Salaires et frais payés, l'activité dégage 112,97 €/h)  │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 7 : PRIX SUGGÉRÉ (Marge Nette Cible 25%)                              │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   PV suggéré HT unitaire = 7.2559 ÷ 0.75 = 9.6745 €   → AFFICHÉ : 9.70 €    │
-│   PV suggéré TTC unitaire = 9.6745 × 1.10 = 10.6420 € → AFFICHÉ : 10.70 €   │
+│   PV suggéré HT unitaire = 7.2559 ÷ 0.75 = 9.6745 €   → AFFICHÉ : 9,67 €    │
+│   PV suggéré TTC unitaire = 9.6745 × 1.10 = 10.6420 € → AFFICHÉ : 10,64 €   │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 8 : BILAN ALLERGÈNES                                                  │
@@ -368,46 +380,46 @@ standardisée du Prime Cost.
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 1 : COÛT MATIÈRE (CM)                                                 │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   CM total brut = 2.50 + 0.26 + 0.475 + 0.10 = 3.335 € → AFFICHÉ : 3.40 €     │
-│   CM unitaire brut = 3.335 ÷ 4 = 0.83375 €           → AFFICHÉ : 0.90 €     │
+│   CM total brut = 2.50 + 0.26 + 0.475 + 0.10 = 3.335 € → AFFICHÉ : 3,34 €   │
+│   CM unitaire brut = 3.335 ÷ 4 = 0.83375 €           → AFFICHÉ : 0,83 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 2 : COÛT MAIN D'ŒUVRE (MO)                                            │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   MO total brut = (45 ÷ 60) × 22.00 = 16.50 €        → AFFICHÉ : 16.50 €    │
-│   MO unitaire brut = 16.50 ÷ 4 = 4.125 €                                    │
+│   MO total brut = (45 ÷ 60) × 22.00 = 16.50 €        → AFFICHÉ : 16,50 €    │
+│   MO unitaire brut = 16.50 ÷ 4 = 4.125 €             → AFFICHÉ : 4,13 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 3 : PRIME COST & FRAIS GÉNÉRAUX (FG)                                  │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   Prime Cost = 3.335 + 16.50 = 19.835 €                                     │
-│   FG = 19.835 × 0.10 = 1.9835 €                      → AFFICHÉ : 1.99 €     │
+│   FG = 19.835 × 0.10 = 1.9835 €                      → AFFICHÉ : 1,98 €     │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 4 : COÛT COMPLET                                                      │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   Coût Complet total = 19.835 + 1.9835 = 21.8185 €                          │
-│   Coût Complet unitaire brut = 21.8185 ÷ 4 = 5.4546 € → AFFICHÉ : 5.50 €    │
+│   Coût Complet unitaire brut = 21.8185 ÷ 4 = 5.4546 € → AFFICHÉ : 5,45 €    │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 5 : PRIX ACTUEL ET MARGE                                              │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   PV HT actuel = (3.335 ÷ 4) × 4.0 = 3.335 €         → AFFICHÉ : 3.40 €     │
-│   PV TTC actuel = 3.335 × 1.10 = 3.6685 €            → AFFICHÉ : 3.70 €     │
+│   PV HT actuel = (3.335 ÷ 4) × 4.0 = 3.335 €         → AFFICHÉ : 3,34 €     │
+│   PV TTC actuel = 3.335 × 1.10 = 3.6685 €            → AFFICHÉ : 3,67 €     │
 │   Marge Nette réelle = ((3.335 - 5.4546) ÷ 3.335) × 100                     │
-│                      = -63.557%                       → AFFICHÉE : -63.6% ⚠️ │
+│                      = -63.557%                       → AFFICHÉE : -63.6%   │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 6 : RENTABILITÉ HORAIRE COMPLÉMENTAIRE                                │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │   Profit total brut = (3.335 - 5.4546) × 4 = -8.4785 €                      │
-│   Profit/heure brut = -8.4785 ÷ 0.75 = -11.304 €/h   → AFFICHÉ : -11.30 €/h │
+│   Profit/heure brut = -8.4785 ÷ 0.75 = -11.304 €/h   → AFFICHÉ : -11,30 €/h │
 │                                                                             │
 │ ─────────────────────────────────────────────────────────────────────────   │
 │ ÉTAPE 7 : PRIX SUGGÉRÉ (Marge 25%)                                          │
 │ ─────────────────────────────────────────────────────────────────────────   │
-│   PV suggéré HT unitaire = 5.4546 ÷ 0.75 = 7.2728 €  → AFFICHÉ : 7.30 €     │
-│   PV suggéré TTC unitaire = 7.2728 × 1.10 = 8.0001 € → AFFICHÉ : 8.10 €     │
+│   PV suggéré HT unitaire = 5.4546 ÷ 0.75 = 7.2728 €  → AFFICHÉ : 7,27 €     │
+│   PV suggéré TTC unitaire = 7.2728 × 1.10 = 8.0001 € → AFFICHÉ : 8,00 €     │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 

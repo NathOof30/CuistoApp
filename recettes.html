@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recettes - Gestion Culinaire</title>
     <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body>
@@ -23,7 +22,7 @@
     <main id="app-container">
         <div class="page-header">
             <div>
-                <h2>📖 Fiches Techniques & Recettes</h2>
+                <h2>Fiches Techniques &amp; Recettes</h2>
                 <p class="page-subtitle">Consultez vos fiches techniques, maîtrisez vos coûts matière et suivez votre rentabilité en direct.</p>
             </div>
             <div class="header-actions">
@@ -75,7 +74,7 @@
                         <!-- Section 1: Informations Générales & Temps -->
                         <div class="recipe-panel-card">
                             <div class="recipe-panel-header">
-                                <span>📌 Informations Générales & Temps</span>
+                                <span>Informations Générales &amp; Temps</span>
                             </div>
                             <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
                                 <div class="form-group">
@@ -100,7 +99,7 @@
                         <!-- Section 2: Composition & Ingrédients -->
                         <div class="recipe-panel-card">
                             <div class="recipe-panel-header">
-                                <span>🥗 Composition (Ingrédients)</span>
+                                <span>Composition (Ingrédients)</span>
                                 <button type="button" id="add-ingredient-row-btn" class="button-secondary" style="font-size: 0.82rem; padding: 0.35rem 0.75rem;">+ Ajouter un ingrédient</button>
                             </div>
                             <div id="ingredient-list" class="ingredient-rows">
@@ -111,17 +110,17 @@
                         <!-- Section 3: Allergènes détectés -->
                         <div class="recipe-panel-card">
                             <div class="recipe-panel-header">
-                                <span>⚠️ Allergènes détectés</span>
+                                <span>Allergènes détectés</span>
                             </div>
                             <div id="allergen-preview" class="allergen-preview-container">
-                                <span class="no-allergen-preview">✓ Aucun allergène détecté</span>
+                                <span class="no-allergen-preview">Aucun allergène détecté</span>
                             </div>
                         </div>
 
                         <!-- Section 4: Instructions de préparation -->
                         <div class="recipe-panel-card">
                             <div class="recipe-panel-header">
-                                <span>📝 Instructions de préparation</span>
+                                <span>Instructions de préparation</span>
                             </div>
                             <div class="form-group" style="margin-bottom:0;">
                                 <textarea id="recipe-steps" rows="4" placeholder="Décrivez les étapes de préparation de la recette..."></textarea>
@@ -134,42 +133,42 @@
                         <div class="recipe-panel-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%; position: sticky; top: 1rem;">
                             <div>
                                 <div class="recipe-panel-header">
-                                    <span>📊 Rentabilité en direct</span>
+                                    <span>Rentabilité en direct</span>
                                 </div>
 
                                 <div class="rentability-hero-price">
                                     <div class="rentability-price-label">Prix de vente calculé (HT)</div>
-                                    <div class="rentability-price-value-ht" id="sale-price-ht-display">0,000 €</div>
-                                    <div class="rentability-price-value-ttc">TTC : <span id="sale-price-ttc-display">0,000 €</span></div>
+                                    <div class="rentability-price-value-ht" id="sale-price-ht-display">0,00 €</div>
+                                    <div class="rentability-price-value-ttc">TTC : <span id="sale-price-ttc-display">0,00 €</span></div>
                                     <div class="rentability-price-badge-kg" id="sale-price-kg-hero-badge" style="display: none; white-space: nowrap !important;">
-                                        ⚖️&nbsp;Prix au kg&nbsp;:&nbsp;<strong id="sale-price-kg-hero-display">—</strong>&nbsp;TTC/kg
+                                        Prix au kg : <strong id="sale-price-kg-hero-display">—</strong> TTC/kg
                                     </div>
                                 </div>
 
                                 <div class="rentability-stats-list" style="border-top: none; padding-top: 0; margin-top: 0;">
                                     <div class="rentability-stat-item">
                                         <span class="rentability-stat-label">Coût matière total :</span>
-                                        <span class="rentability-stat-value" id="total-cost-display">0,000 €</span>
+                                        <span class="rentability-stat-value" id="total-cost-display">0,00 €</span>
                                     </div>
                                     <div class="rentability-stat-item">
                                         <span class="rentability-stat-label">Coût matière / portion :</span>
-                                        <span class="rentability-stat-value" id="cost-per-serving-display">0,000 €</span>
+                                        <span class="rentability-stat-value" id="cost-per-serving-display">0,00 €</span>
                                     </div>
                                     <div class="rentability-stat-item">
                                         <span class="rentability-stat-label">Poids total recette :</span>
                                         <span class="rentability-stat-value font-mono" id="recipe-total-weight-display">0,000 kg</span>
                                     </div>
                                     <div class="rentability-stat-item" style="background: rgba(79, 70, 229, 0.05); padding: 0.35rem 0.5rem; border-radius: 6px;">
-                                        <span class="rentability-stat-label" style="font-weight: 600; color: var(--text-color);">⚖️ Prix vente TTC / kg :</span>
+                                        <span class="rentability-stat-label" style="font-weight: 600; color: var(--text-color);">Prix vente TTC / kg :</span>
                                         <span class="rentability-stat-value font-mono" id="sale-price-kg-display" style="color: var(--primary-color); font-weight: 800;">—</span>
                                     </div>
                                     <div class="rentability-stat-item">
                                         <span class="rentability-stat-label">Coût MO / portion :</span>
-                                        <span class="rentability-stat-value" id="labor-cost-display">0,000 €</span>
+                                        <span class="rentability-stat-value" id="labor-cost-display">0,00 €</span>
                                     </div>
                                     <div class="rentability-stat-item">
                                         <span class="rentability-stat-label">Coût Complet / portion :</span>
-                                        <span class="rentability-stat-value" id="total-cost-serving-display">0,000 €</span>
+                                        <span class="rentability-stat-value" id="total-cost-serving-display">0,00 €</span>
                                     </div>
                                 </div>
 
@@ -185,7 +184,7 @@
                                 </div>
 
                                 <div class="friendly-alert-card" style="margin: 1rem 0; padding: 0.85rem; font-size: 0.82rem;">
-                                    <div class="friendly-alert-title" style="font-size: 0.88rem;">💡 Prix suggéré (Marge 25%)</div>
+                                    <div class="friendly-alert-title" style="font-size: 0.88rem;" id="suggested-price-title">Prix suggéré (Marge 25 %)</div>
                                     <div>HT : <strong id="suggested-price-ht-display">N/A</strong> | TTC : <strong id="suggested-price-ttc-display">N/A</strong></div>
                                 </div>
                             </div>
@@ -198,17 +197,6 @@
                     </div>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- Modale pour afficher les détails des allergènes -->
-    <div id="allergen-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content modal-small">
-            <h3 class="allergen-modal-title">Allergènes</h3>
-            <button type="button" class="modal-close-btn" aria-label="Fermer">✕</button>
-            <div class="allergen-list">
-                <!-- Liste des allergènes injectée par JS -->
-            </div>
         </div>
     </div>
 

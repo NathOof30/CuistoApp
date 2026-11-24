@@ -1,23 +1,32 @@
-import { recipes, mercuriale, setData, saveData } from '../data.js';
+import { recipes, mercuriale, setData, saveData, getGlobalSettings } from '../data.js';
 import { showToast } from './ui-feedback.js';
 
-let fileInput;
+let fileInput = null;
+let initialized = false;
+
+function ensureFileInput() {
+    if (!fileInput || !document.body.contains(fileInput)) {
+        fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json,application/json';
+        fileInput.style.display = 'none';
+        fileInput.addEventListener('change', handleFileImport);
+        document.body.appendChild(fileInput);
+    }
+    return fileInput;
+}
 
 export function initDataManagement() {
+    if (initialized) return;
+    initialized = true;
+
     const importBtn = document.getElementById('import-data-btn');
     const exportBtn = document.getElementById('export-data-btn');
 
-    // Create a single file input and reuse it
-    fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.json,application/json';
-    fileInput.style.display = 'none';
-    document.body.appendChild(fileInput);
-
-    fileInput.addEventListener('change', handleFileImport);
+    ensureFileInput();
 
     if (importBtn) {
-        importBtn.addEventListener('click', () => fileInput.click());
+        importBtn.addEventListener('click', () => ensureFileInput().click());
     }
     if (exportBtn) {
         exportBtn.addEventListener('click', handleFileExport);
@@ -27,29 +36,34 @@ export function initDataManagement() {
 export function showFirstVisitModal() {
     const modal = document.getElementById('first-visit-modal');
     if (!modal) return;
-    
-    modal.style.display = 'flex';
-    
-    document.getElementById('start-fresh-btn').addEventListener('click', () => {
-        modal.style.display = 'none';
-        // The default data is already in memory, we just need to save it to start.
-        saveData();
-        window.location.reload();
-    });
 
-    document.getElementById('import-first-time-btn').addEventListener('click', () => {
-         if (!fileInput) { // Ensure file input is created
-            initDataManagement();
-        }
-        fileInput.click();
-        modal.style.display = 'none';
-    });
+    modal.style.display = 'flex';
+
+    const startFreshBtn = document.getElementById('start-fresh-btn');
+    const importFirstTimeBtn = document.getElementById('import-first-time-btn');
+
+    if (startFreshBtn) {
+        startFreshBtn.onclick = () => {
+            modal.style.display = 'none';
+            // The default data is already in memory, we just need to save it to start.
+            saveData();
+            window.location.reload();
+        };
+    }
+
+    if (importFirstTimeBtn) {
+        importFirstTimeBtn.onclick = () => {
+            ensureFileInput().click();
+            modal.style.display = 'none';
+        };
+    }
 }
 
 function handleFileExport() {
     const dataToExport = {
         mercuriale: mercuriale,
-        recipes: recipes
+        recipes: recipes,
+        settings: getGlobalSettings()
     };
 
     const dataStr = JSON.stringify(dataToExport, null, 2);
@@ -73,15 +87,15 @@ function handleFileImport(event) {
     }
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         try {
             const data = JSON.parse(e.target.result);
-            if (data && data.mercuriale && data.recipes) {
+            if (data && Array.isArray(data.mercuriale) && Array.isArray(data.recipes)) {
                 if (setData(data)) {
                     showToast('Données importées avec succès. Rechargement en cours...', 'success', 2000);
                     setTimeout(() => window.location.reload(), 1500);
                 } else {
-                    showToast('Erreur lors de la mise à jour des données.', 'error');
+                    showToast('Erreur lors de la mise à jour des données (stockage local saturé).', 'error');
                 }
             } else {
                 showToast('Fichier JSON invalide. Il doit contenir les clés "mercuriale" et "recipes".', 'error');
@@ -94,7 +108,7 @@ function handleFileImport(event) {
             event.target.value = null;
         }
     };
-    reader.onerror = function() {
+    reader.onerror = function () {
         showToast('Erreur lors de la lecture du fichier.', 'error');
         event.target.value = null;
     };

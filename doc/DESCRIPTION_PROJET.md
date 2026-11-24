@@ -28,10 +28,10 @@ Il s'agit d'une application **Single-Page Application (SPA) / Multi-Pages asynch
     *   `data.js` : Modèle de données (recettes, mercuriale, 14 allergènes UE), règles métier, constantes dynamiques de simulation et fonctions de calcul de rentabilité (Prime Cost SAS).
     *   `app.js` : Point d'entrée global (initialisation de la page, gestion du thème sombre, calcul dynamique du décalage du header sticky et raccourcis globaux des modales).
     *   `js/` : Modules métier organisés par responsabilité :
-        *   `common.js` : Fonctions d'arrondi monétaire strict (`formatCurrency`, `formatCurrency3`), formatage des quantités selon l'unité (`formatQuantity`, `formatQuantityInput`), pourcentages et durées.
+        *   `common.js` : Fonctions d'arrondi monétaire standard à 2 décimales (`roundCurrency`, `formatCurrency`, `formatUnitPrice`), formatage des quantités (`formatQuantity`, `formatQuantityInput`), poids (`formatWeight`), taux (`formatRate`), pourcentages, durées et conversions d'unités (masses et volumes séparés).
         *   `dashboard.js` : Contrôleur du Tableau de Bord (statistiques clés, santé de la mercuriale, panneau de notifications et formulaire des paramètres globaux de simulation).
         *   `mercuriale.js` : Gestion de la mercuriale (rendu du tableau, tri par colonne, recherche, filtre par famille, sélection dynamique avec option `[Autre...]`, modale d'inspection de denrée).
-        *   `recettes.js` : Gestion des recettes (rendu du tableau, tri par colonne, calcul en temps réel des coûts et marges Prime Cost, duplication de recette, modales de détails et d'allergènes).
+        *   `recettes.js` : Gestion des recettes (rendu du tableau, tri par colonne, calcul en temps réel des coûts et marges Prime Cost, duplication de recette, modale de détails et feuille d'audit PDF).
         *   `bon-economat.js` : Générateur de bon d'économat (agrégation des ingrédients, devis prévisionnel et exports multi-formats : CSV, TXT tabulé/TSV et TXT à colonnes fixes).
         *   `data-management.js` : Gestion de l'import/export JSON et modale de première visite.
         *   `ui-feedback.js` : Système de notifications toast et modales de confirmation.
@@ -51,7 +51,7 @@ L'application est divisée en 4 modules principaux (onglets).
     - Marge nette cible (%) (défaut : 25%).
     - Taux de TVA (%) (défaut : 10%).
     - *Ces réglages sont enregistrés dans le `localStorage` et recalculent instantanément l'ensemble des marges et prix suggérés de l'application.*
-- **Gestion des Données (JSON) :** Importer et exporter l'intégralité de la base de données au format `.json` (`backup-cuisine-YYYY-MM-DD.json`) et outil de conversion rapide (kg → g).
+- **Gestion des Données (JSON) :** Importer et exporter l'intégralité de la base de données (mercuriale, recettes et paramètres globaux) au format `.json` (`backup-cuisine-YYYY-MM-DD.json`).
 - **Panneau de Notifications :** Détection automatique des ingrédients sans prix/unité/famille ou des recettes incomplètes.
 - **Thème sombre / clair :** Bouton de bascule dans le menu de navigation header avec mémorisation des préférences.
 
@@ -85,13 +85,14 @@ Cœur du système permettant d'élaborer les plats et de calculer leur rentabili
 ### 📋 D. Bons d'économat (`bon-economat.html`)
 Module logistique et de devis commercial.
 - **Constitution de commandes :** Sélection de plusieurs recettes avec le nombre de portions souhaitées pour un événement.
-- **Agrégation automatique :** Calcule les quantités exactes de chaque matière première requise, triées par ordre alphabétique.
-- **Détail par recette & Synthèse globale :** Visualisation séparée du besoin par recette et du besoin cumulé total.
-- **Génération de Devis Commercial :** Calcul et affichage du Chiffre d'Affaires prévisionnel (HT et TTC) de la prestation et de la marge brute globale dégagée.
-- **Exports multi-formats :**
-    - **Export CSV :** Téléchargement au format `.csv` pour tableurs (Excel, Calc).
+- **Agrégation automatique :** Calcule les quantités exactes, poids totaux (kg) et coûts HT de chaque matière première requise, triées par ordre alphabétique.
+- **Détail par recette & Synthèse globale :** Affichage du nombre de portions choisies, du poids total, du poids par portion (kg et g), du coût HT par portion et des pieds de tableaux complets (poids + prix) pour chaque recette et pour le total global.
+- **Génération de Devis Commercial :** Calcul et affichage du Chiffre d'Affaires prévisionnel (HT et TTC avec taux de TVA dynamique) de la prestation et de la marge brute globale dégagée.
+- **Exports multi-formats & 3 modes PDF :**
+    - **PDF (`Total`, `Par recette`, `Complet`) :** Mise en page sobre, carrée, noir & blanc, sans emoji, incluant portions choisies, totaux poids & prix sur chaque tableau, et coût/poids par portion.
+    - **Export CSV (UTF-8 avec BOM) :** Téléchargement au format `.csv` compatible Excel (synthèse recettes + récapitulatif denrées).
     - **Export TXT tabulé (TSV) :** Fichier `.txt` avec séparateurs par tabulation.
-    - **Export TXT colonnes fixes :** Fichier `.txt` lisible en texte brut avec alignement parfait sous forme de tableau.
+    - **Export TXT colonnes fixes :** Fichier `.txt` lisible en texte brut avec alignement sous forme de tableau.
 
 ---
 
@@ -152,7 +153,7 @@ Liste stricte des 14 allergènes majeurs du Règlement UE 1169/2011 comprenant l
 
 1. **Relationnelle de fait :** Les recettes stockent uniquement `ingredientId`. Lorsqu'un prix d'ingrédient est modifié dans la mercuriale, les coûts, marges et devis de toutes les recettes associées sont automatiquement et instantanément mis à jour.
 2. **Propagation Automatique des Allergènes :** Tout ingrédient étiqueté avec des allergènes dans la mercuriale transmet automatiquement ses avertissements allergènes à toutes les recettes qui l'utilisent.
-3. **Arrondi financier garanti :** Pour l'affichage, les prix respectent une règle d'arrondi strict à la dizaine de centimes supérieure (ou centime supérieur pour les micro-prix < 0.10 €), évitant d'afficher des sous-centimes tout en protégeant les marges de l'artisan.
+3. **Arrondi financier standard à 2 décimales :** Tous les montants monétaires affichés et exportés sont arrondis mathématiquement au centime (`roundCurrency`, ex. `0,009 € → 0,01 €`, `0,09 € → 0,09 €`). Les prix unitaires inférieurs à `0,01 €` conservent 3 à 4 décimales pour rester lisibles (ex. denrées facturées au gramme).
 4. **Exécution 100% Locale & En Ligne :** Grâce aux modules ES (ESModules), l'application est extrêmement réactive, sans nécessiter aucun serveur backend, hébergée sur GitHub Pages ou exécutée en local.
 
 ---

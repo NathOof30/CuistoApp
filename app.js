@@ -1,7 +1,7 @@
-import { initDashboard } from './js/dashboard.js';
-import { initRecettesPage } from './js/recettes.js';
-import { initMercurialePage } from './js/mercuriale.js';
-import { initBonEconomatPage } from './js/bon-economat.js';
+import { initDashboard, refreshDashboard } from './js/dashboard.js';
+import { initRecettesPage, refreshRecettesPage } from './js/recettes.js';
+import { initMercurialePage, refreshMercurialePage } from './js/mercuriale.js';
+import { initBonEconomatPage, refreshBonEconomatPage } from './js/bon-economat.js';
 import { isDataLoaded, loadData, updateGlobalSettings } from './data.js';
 import { initDataManagement, showFirstVisitModal } from './js/data-management.js';
 import { showToast } from './js/ui-feedback.js';
@@ -16,8 +16,12 @@ function updateStickyHeaderOffset() {
     document.documentElement.style.setProperty('--sticky-header-offset', `${headerHeight}px`);
 }
 
-function renderCurrentPage() {
-    const path = window.location.pathname.split("/").pop();
+function getCurrentPageName() {
+    return window.location.pathname.split('/').pop();
+}
+
+function initCurrentPage() {
+    const path = getCurrentPageName();
     if (path === 'index.html' || path === '') {
         initDashboard();
         initDataManagement();
@@ -27,6 +31,19 @@ function renderCurrentPage() {
         initMercurialePage();
     } else if (path === 'bon-economat.html') {
         initBonEconomatPage();
+    }
+}
+
+function refreshCurrentPage() {
+    const path = getCurrentPageName();
+    if (path === 'index.html' || path === '') {
+        refreshDashboard();
+    } else if (path === 'recettes.html') {
+        refreshRecettesPage();
+    } else if (path === 'mercuriale.html') {
+        refreshMercurialePage();
+    } else if (path === 'bon-economat.html') {
+        refreshBonEconomatPage();
     }
 }
 
@@ -51,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBtn.className = 'theme-toggle-btn';
         toggleBtn.setAttribute('aria-label', 'Changer le thème');
         toggleBtn.innerHTML = isDark ? sunIcon : moonIcon;
-        
+
         toggleBtn.addEventListener('click', () => {
             const currentlyDark = document.body.classList.toggle('dark-mode');
             localStorage.setItem('theme', currentlyDark ? 'dark' : 'light');
@@ -61,27 +78,34 @@ document.addEventListener('DOMContentLoaded', () => {
         nav.appendChild(toggleBtn);
     }
 
-    const path = window.location.pathname.split("/").pop();
+    const path = getCurrentPageName();
 
     if (!isDataLoaded() && (path === 'index.html' || path === '')) {
         showFirstVisitModal();
     }
 
-    renderCurrentPage();
+    initCurrentPage();
 
-    // Synchronisation inter-onglets en temps réel
+    // Alerte utilisateur en cas d'erreur de sauvegarde (ex: quota localStorage dépassé)
+    window.addEventListener('data-save-error', () => {
+        showToast('Impossible de sauvegarder : espace de stockage local saturé.', 'error', 5000);
+    });
+
+    // Synchronisation inter-onglets en temps réel (rafraîchissement sans ré-empiler d'écouteurs)
     window.addEventListener('storage', (e) => {
         if (e.key === 'culinary-recipes' || e.key === 'culinary-mercuriale' || (e.key && e.key.startsWith('settings-'))) {
             loadData();
             updateGlobalSettings();
-            renderCurrentPage();
+            refreshCurrentPage();
             showToast('Données mises à jour depuis un autre onglet.', 'info', 2000);
         }
     });
 
-    // Global Modal Handling (Escape and backdrop clicks)
+    // Gestion centralisée des modales (Escape et clic sur le fond)
+    // Ne ferme pas la modale sous-jacente lorsqu'une boîte de confirmation showConfirm() est ouverte.
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
+            if (document.querySelector('.confirm-overlay')) return;
             document.querySelectorAll('.modal-overlay').forEach(modal => {
                 modal.style.display = 'none';
             });
@@ -90,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+            if (e.target === modal && !document.querySelector('.confirm-overlay')) {
                 modal.style.display = 'none';
             }
         });
